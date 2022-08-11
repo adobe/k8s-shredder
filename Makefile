@@ -89,6 +89,11 @@ demo.run: ## Run demo
 
 ci: local-test e2e-tests clean ## Run CI
 
+# PUBLISH
+# -----------
+publish: ## Release a new version
+	@goreleaser release --rm-dist
+
 # CLEANUP
 # -----------
 clean: ## Clean up local testing environment

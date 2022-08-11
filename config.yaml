@@ -1,0 +1,10 @@
+---
+EvictionLoopInterval: 10s
+ParkedNodeTTL: 1m
+RollingRestartThreshold: 0.5
+UpgradeStatusLabel: "shredder.ethos.adobe.net/upgrade-status"
+ExpiresOnLabel: "shredder.ethos.adobe.net/parked-node-expires-on"
+NamespacePrefixSkipInitialEviction: "ns-ethos-"
+RestartedAtAnnotation: "shredder.ethos.adobe.net/restartedAt"
+AllowEvictionLabel: "shredder.ethos.adobe.net/allow-eviction"
+ToBeDeletedTaint: "ToBeDeletedByClusterAutoscaler"

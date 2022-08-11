@@ -1,0 +1,73 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-shredder
+  namespace: kube-system
+  labels:
+    app: k8s-shredder
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k8s-shredder
+  template:
+    metadata:
+      labels:
+        app: k8s-shredder
+    spec:
+      serviceAccountName: k8s-shredder
+      containers:
+        - name: k8s-shredder
+          image: adobe/k8s-shredder:dev # replace it with a stable version
+          args:
+            - "--config=/k8s-shredder-config/config.yaml"
+            - "--metrics-port=8080"
+            # For running it in dry run, without taking any real eviction actions
+            # - "--dry-run"
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: 250m
+              memory: 250M
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          volumeMounts:
+            - name: k8s-shredder-config-volume
+              mountPath: /k8s-shredder-config
+      volumes:
+        - name: k8s-shredder-config-volume
+          configMap:
+            defaultMode: 420
+            name: k8s-shredder-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k8s-shredder-config
+  namespace: kube-system
+data:
+  config.yaml: |-
+    EvictionLoopInterval: 10s
+    ParkedNodeTTL: 1m
+    RollingRestartThreshold: 0.5
+    UpgradeStatusLabel: "shredder.ethos.adobe.net/upgrade-status"
+    ExpiresOnLabel: "shredder.ethos.adobe.net/parked-node-expires-on"
+    NamespacePrefixSkipInitialEviction: "ns-ethos-"
+    RestartedAtAnnotation: "shredder.ethos.adobe.net/restartedAt"
+    AllowEvictionLabel: "shredder.ethos.adobe.net/allow-eviction"
+    ToBeDeletedTaint: "ToBeDeletedByClusterAutoscaler"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8s-shredder
+  namespace: kube-system
+spec:
+  selector:
+    app: k8s-shredder
+  ports:
+    - port: 8080
+      targetPort: 8080

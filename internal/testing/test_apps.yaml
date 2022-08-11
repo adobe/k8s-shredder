@@ -1,0 +1,242 @@
+##### PAAS #####
+# 1. Good citizen with `shredder.ethos.adobe.net/allow-eviction: false`
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-app-disallow-eviction
+  namespace: ns-team-k8s-shredder-test
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: test-app-disallow-eviction
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: test-app-disallow-eviction
+        shredder.ethos.adobe.net/allow-eviction: "false"
+    spec:
+      containers:
+        - name: canary
+          image: aaneci/canary
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: test-app-disallow-eviction
+  namespace: ns-team-k8s-shredder-test
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: test-app-disallow-eviction
+
+# 2. Good citizen
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-app-allow-eviction
+  namespace: ns-team-k8s-shredder-test
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: test-app-allow-eviction
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: test-app-allow-eviction
+    spec:
+      containers:
+        - name: canary
+          image: aaneci/canary
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: test-app-allow-eviction
+  namespace: ns-team-k8s-shredder-test
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: test-app-allow-eviction
+
+# 3. Bad citizen with wrongly configured PDB
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-app-with-bad-pdb
+  namespace: ns-team-k8s-shredder-test
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: test-app-with-bad-pdb
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 25%
+  template:
+    metadata:
+      labels:
+        app: test-app-with-bad-pdb
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: will-be-parked
+                    operator: In
+                    values:
+                      - "yes"
+      containers:
+        - name: canary
+          image: aaneci/canary
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: test-app-with-bad-pdb
+  namespace: ns-team-k8s-shredder-test
+spec:
+  minAvailable: 10
+  selector:
+    matchLabels:
+      app: test-app-with-bad-pdb
+
+# 4. Good citizen with recreate update strategy
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-app-with-recreate
+  namespace: ns-team-k8s-shredder-test
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: test-app-recreate
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: test-app-recreate
+    spec:
+      containers:
+        - name: canary
+          image: aaneci/canary
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: test-app-recreate
+  namespace: ns-team-k8s-shredder-test
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: test-app-recreate
+
+##### CAAS #####
+# 1. Good citizen in CaaS world
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-app-caas
+  namespace: ns-k8s-shredder-test
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: test-app-caas
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: test-app-caas
+    spec:
+      containers:
+        - name: canary
+          image: aaneci/canary
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: test-app-caas
+  namespace: ns-k8s-shredder-test
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: test-app-caas
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-app-statefulset
+  namespace: ns-team-k8s-shredder-test
+spec:
+  ports:
+    - port: 80
+      targetPort: 8080
+      name: web
+  clusterIP: None
+  selector:
+    app: test-app-statefulset
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: test-app-statefulset
+  namespace: ns-team-k8s-shredder-test
+spec:
+  selector:
+    matchLabels:
+      app: test-app-statefulset
+  serviceName: "test-app-statefulset"
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: test-app-statefulset
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: test-app-statefulset
+          image: aaneci/canary
+          ports:
+            - containerPort: 8080
+              name: web
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: test-app-statefulset
+  namespace: ns-team-k8s-shredder-test
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: test-app-statefulset

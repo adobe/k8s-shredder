@@ -4,7 +4,7 @@
 
 # K8s-shredder - a new way of parking in Kubernetes
 
-[![tests](https://github.com/adobe/k8s-shredder/actions/workflows/ci.yml/badge.svg)](https://github.com/adobe/k8s-shredder/actions/workflows/ci.yml)
+[![tests](https://github.com/adobe/k8s-shredder/actions/workflows/ci.yaml/badge.svg)](https://github.com/adobe/k8s-shredder/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/adobe/k8s-shredder)](https://goreportcard.com/report/github.com/adobe/k8s-shredder)
 [![GoDoc](https://pkg.go.dev/badge/github.com/adobe/k8s-shredder?status.svg)](https://pkg.go.dev/github.com/adobe/k8s-shredder?tab=doc)
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/adobe/k8s-shredder)

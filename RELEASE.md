@@ -16,6 +16,11 @@ git tag -a ${NEW_VERSION} -m "Release ${NEW_VERSION}"
 git push origin ${NEW_VERSION}
 
 export GITHUB_TOKEN=<your_github_PAT_token> 
+
+docker login ghcr.io
+Username: <your_github_username> 
+Password: <your_github_PAT_token>
+
 make publish
 ```
 

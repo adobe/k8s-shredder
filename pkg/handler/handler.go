@@ -280,9 +280,9 @@ func (h *Handler) GetPodsForNode(node v1.Node) ([]v1.Pod, error) {
 			continue
 		}
 
-		// skip pods with DaemonSet controller object
-		if len(pod.OwnerReferences) > 0 && pod.ObjectMeta.OwnerReferences[0].Kind == "DaemonSet" {
-			h.logger.Debugf("Skipping %s as it is part of a DaemonSet", pod.Name)
+		// skip pods with DaemonSet controller object or static pods
+		if len(pod.OwnerReferences) > 0 && slices.Contains([]string{"DaemonSet", "Node"}, pod.ObjectMeta.OwnerReferences[0].Kind) {
+			h.logger.Debugf("Skipping %s as it is part of a DaemonSet or is a static pod", pod.Name)
 			continue
 		}
 
@@ -355,6 +355,10 @@ func (h *Handler) getControllerObject(pod v1.Pod) (*controllerObject, error) {
 	case "DaemonSet":
 		h.logger.Warnf("DaemonSets are not covered")
 		return newControllerObject("DaemonSet", "", "", nil), nil
+
+	case "Node":
+		h.logger.Warnf("Static pods are not covered")
+		return newControllerObject("StaticPod", "", "", nil), nil
 
 	case "StatefulSet":
 		sts, err := h.appContext.K8sClient.AppsV1().StatefulSets(pod.Namespace).Get(h.appContext.Context, pod.OwnerReferences[0].Name, metav1.GetOptions{})

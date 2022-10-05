@@ -33,7 +33,6 @@ var (
 	cfg                          config.Config
 	appContext                   *utils.AppContext
 	scheduler                    *gocron.Scheduler
-	configChangeCallback         func()
 
 	rootCmd = &cobra.Command{
 		Use:              "k8s-shredder",
@@ -122,12 +121,10 @@ func discoverConfig() {
 	viper.WatchConfig()
 	viper.OnConfigChange(func(e fsnotify.Event) {
 		log.Infof("Configuration file `%s` changed, attempting to reload", e.Name)
-		if configChangeCallback != nil {
-			reset()
-			parseConfig()
-			configChangeCallback()
-			run(&cobra.Command{}, []string{})
-		}
+		reset()
+		parseConfig()
+		appContext.Config = cfg
+		run(&cobra.Command{}, []string{})
 	})
 }
 

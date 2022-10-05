@@ -14,6 +14,7 @@ package metrics
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -63,8 +64,13 @@ func serve(port int) error {
 		}
 	})
 
+	server := &http.Server{
+		Addr:              fmt.Sprintf(":%d", port),
+		ReadHeaderTimeout: 3 * time.Second,
+	}
+
 	go func() {
-		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
+		log.Fatal(server.ListenAndServe(), nil)
 	}()
 	return nil
 }

@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	deploymentutil "k8s.io/kubectl/pkg/util/deployment"
 	"k8s.io/utils/pointer"
 )
 
@@ -376,6 +377,13 @@ func (h *Handler) isRolloutRestartInProgress(co *controllerObject) (bool, error)
 	case "Deployment":
 		deployment := co.Object.(*appsv1.Deployment)
 
+		// first check if deployment exceeded its rollout progress deadline
+		cond := deploymentutil.GetDeploymentCondition(deployment.Status, appsv1.DeploymentProgressing)
+		if cond != nil && cond.Reason == deploymentutil.TimedOutReason {
+			return false, nil
+		}
+
+		// second validate if there is any in progress rollout
 		return deployment.Generation <= deployment.Status.ObservedGeneration &&
 			(deployment.Spec.Replicas != nil && deployment.Status.UpdatedReplicas < *deployment.Spec.Replicas) ||
 			(deployment.Status.Replicas > deployment.Status.UpdatedReplicas) ||

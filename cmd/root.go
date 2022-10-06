@@ -106,7 +106,7 @@ func discoverConfig() {
 	// Set default values in case they are omitted in config file
 	viper.SetDefault("EvictionLoopInterval", time.Second*60)
 	viper.SetDefault("ParkedNodeTTL", time.Minute*60)
-	viper.SetDefault("EvictionLoopInterval", 0.5)
+	viper.SetDefault("RollingRestartThreshold", 0.5)
 	viper.SetDefault("UpgradeStatusLabel", "shredder.ethos.adobe.net/upgrade-status")
 	viper.SetDefault("ExpiresOnLabel", "shredder.ethos.adobe.net/parked-node-expires-on")
 	viper.SetDefault("NamespacePrefixSkipInitialEviction", "")

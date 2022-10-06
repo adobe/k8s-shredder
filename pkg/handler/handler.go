@@ -190,7 +190,7 @@ func (h *Handler) processNode(node v1.Node, rr chan *controllerObject) error {
 		}
 
 		if h.appContext.Config.NamespacePrefixSkipInitialEviction == "" || !strings.HasPrefix(pod.Namespace, h.appContext.Config.NamespacePrefixSkipInitialEviction) {
-			rrThresholdTime := -h.appContext.Config.ParkedNodeTTL * time.Duration(100-h.appContext.Config.RollingRestartThreshold*100) / 100
+			rrThresholdTime := h.appContext.Config.ParkedNodeTTL * time.Duration(100-h.appContext.Config.RollingRestartThreshold*100) / 100
 			if time.Now().UTC().Before(expiresOn.Add(-rrThresholdTime)) {
 				err := h.evictPod(pod, deleteOptions)
 				if err != nil {

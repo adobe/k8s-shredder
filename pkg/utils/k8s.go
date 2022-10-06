@@ -76,9 +76,9 @@ func PodHasLabel(pod v1.Pod, key string) bool {
 
 // GetParkedNodeExpiryTime get the time a parked node TTL expires
 func GetParkedNodeExpiryTime(node v1.Node, expiresOnLabel string) (time.Time, error) {
-	i, err := strconv.ParseInt(node.Labels[expiresOnLabel], 10, 64)
+	i, err := strconv.ParseFloat(node.Labels[expiresOnLabel], 64)
 	if err != nil {
 		return time.Now().UTC(), errors.Errorf("Failed to parse label %s with value %s", expiresOnLabel, node.Labels[expiresOnLabel])
 	}
-	return time.Unix(i, 0).UTC(), nil
+	return time.Unix(int64(i), 0).UTC(), nil
 }

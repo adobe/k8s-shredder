@@ -12,9 +12,9 @@ kubectl label node "${K8S_CLUSTER_NAME}-worker" --kubeconfig=kubeconfig shredder
 # OSX uses BSD tools while Linux uses GNU tools. They are similar but not the same.
 if [[ "$(uname)" = Linux ]]
 then
-  EXPIRES_ON=$(date -d '+1 minutes' +"%s")
+  EXPIRES_ON=$(date -d '+1 minutes' +"%s".000)
 else
-  EXPIRES_ON=$(date -v '+1M' -u +'%s')
+  EXPIRES_ON=$(date -v '+1M' -u +'%s'.000)
 fi
 
 kubectl label node "${K8S_CLUSTER_NAME}-worker" --kubeconfig=kubeconfig --overwrite shredder.ethos.adobe.net/parked-node-expires-on="${EXPIRES_ON}"

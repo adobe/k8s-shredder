@@ -78,10 +78,10 @@ var (
 	)
 
 	// ShredderPodErrorsTotal = Total pod errors
-	ShredderPodErrorsTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
+	ShredderPodErrorsTotal = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
 			Name: "shredder_pod_errors_total",
-			Help: "Total pod errors",
+			Help: "Total pod errors per eviction loop",
 		},
 		[]string{"pod_name", "namespace", "reason", "action"},
 	)

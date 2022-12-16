@@ -5,6 +5,9 @@ networking:
   apiServerAddress: 0.0.0.0
 nodes:
 - role: control-plane
+  extraPortMappings:
+  - containerPort: 30007
+    hostPort: 30007
   kubeadmConfigPatches:
     - |
       kind: InitConfiguration

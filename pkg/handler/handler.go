@@ -26,7 +26,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	policy "k8s.io/api/policy/v1beta1"
+	policy "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -69,9 +69,16 @@ func NewHandler(appContext *utils.AppContext) *Handler {
 
 // Run starts an eviction loop
 func (h *Handler) Run() error {
+	// start measuring the loop duration
 	loopTimer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
 		metrics.ShredderLoopsDurationSeconds.Observe(v * 10e6)
 	}))
+
+	// reset gauge metrics
+	metrics.ShredderNodeForceToEvictTime.Reset()
+	metrics.ShredderPodForceToEvictTime.Reset()
+	metrics.ShredderPodErrorsTotal.Reset()
+
 	h.logger.Infof("Starting eviction loop")
 
 	// sync all nodes goroutines
@@ -208,7 +215,14 @@ func (h *Handler) processNode(node v1.Node, rr chan *controllerObject) error {
 			h.logger.WithFields(log.Fields{
 				"namespace": pod.Namespace,
 				"pod":       pod.Name,
-			}).Warnf("Failed to get pod controller object: %s", err.Error())
+			}).Warnf("Failed to get pod controller object: %s. Proceeding directly with pod eviction", err.Error())
+			err := h.evictPod(pod, deleteOptions)
+			if err != nil {
+				h.logger.WithFields(log.Fields{
+					"namespace": pod.Namespace,
+					"pod":       pod.Name,
+				}).Warnf("Failed to evict pod: %s", err.Error())
+			}
 			continue
 		}
 
@@ -296,8 +310,7 @@ func (h *Handler) GetPodsForNode(node v1.Node) ([]v1.Pod, error) {
 // evictPod evict a pod using the eviction API
 func (h *Handler) evictPod(pod v1.Pod, deleteOptions *metav1.DeleteOptions) error {
 	h.logger.Infof("Evicting pod %s from %s namespace", pod.Name, pod.Namespace)
-	// TODO switch to stable V1 API version once we switch to k8s 1.22
-	err := h.appContext.K8sClient.PolicyV1beta1().Evictions(pod.Namespace).Evict(h.appContext.Context, &policy.Eviction{
+	err := h.appContext.K8sClient.PolicyV1().Evictions(pod.Namespace).Evict(h.appContext.Context, &policy.Eviction{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pod.Name,
 			Namespace: pod.Namespace,
@@ -367,9 +380,9 @@ func (h *Handler) getControllerObject(pod v1.Pod) (*controllerObject, error) {
 			return co, err
 		}
 		return newControllerObject("StatefulSet", sts.Name, sts.Namespace, sts), nil
+	default:
+		return co, errors.Errorf("Controller object of type %s is not a standard controller", pod.OwnerReferences[0].Kind)
 	}
-
-	return co, errors.Errorf("could not find controller object for type %s\n", pod.OwnerReferences[0].Kind)
 }
 
 func (h *Handler) isRolloutRestartInProgress(co *controllerObject) (bool, error) {

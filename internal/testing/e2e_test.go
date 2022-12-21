@@ -12,12 +12,19 @@ governing permissions and limitations under the License.
 package e2e
 
 import (
+	"context"
+	"fmt"
 	"github.com/adobe/k8s-shredder/pkg/config"
 	"github.com/adobe/k8s-shredder/pkg/handler"
 	"github.com/adobe/k8s-shredder/pkg/utils"
+	"github.com/prometheus/client_golang/api"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/model"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -91,6 +98,51 @@ func compareTime(expirationTime time.Time, t *testing.T, ch chan time.Time) {
 }
 
 func TestShredderMetrics(t *testing.T) {
-	// TODO add metrics validation tests
-	t.Log("Metrics validation test passed!")
+
+	var warnings []string
+	var results []string
+
+	// Intentionally skipped the gauge metrics as they are going to be wiped out before every eviction loop
+	shredderMetrics := []string{
+		"shredder_loops_total",
+		"shredder_loops_duration_seconds",
+		"shredder_processed_nodes_total",
+		"shredder_processed_pods_total",
+		"shredder_errors_total",
+	}
+
+	for _, shredderMetric := range shredderMetrics {
+		result, warning, err := prometheusQuery(shredderMetric)
+		if err != nil {
+			t.Errorf("Error querying Prometheus: %v\n", err)
+		}
+		warnings = append(warnings, warning...)
+		results = append(results, result.String())
+	}
+
+	if len(warnings) > 0 {
+		t.Logf("Warnings: %v\n", strings.Join(warnings, "\n"))
+	}
+
+	t.Logf("Results: \n%v\n", strings.Join(results, "\n"))
+
+	if len(results) == len(shredderMetrics) {
+		t.Log("Metrics validation test passed!")
+	}
+}
+
+func prometheusQuery(query string) (model.Value, v1.Warnings, error) {
+
+	client, err := api.NewClient(api.Config{
+		Address: "http://localhost:30007",
+	})
+	if err != nil {
+		fmt.Printf("Error creating client: %v\n", err)
+		os.Exit(1)
+	}
+
+	v1api := v1.NewAPI(client)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return v1api.Query(ctx, query, time.Now(), v1.WithTimeout(5*time.Second))
 }

@@ -1,0 +1,38 @@
+# Please see the documentation for all configuration options: https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+
+version: 2
+updates:
+# github-actions
+- directory: "/"
+  package-ecosystem: "github-actions"
+  schedule:
+    interval: "weekly"
+    time: "09:00"
+    # Use Europe/Bucharest Standard Time (UTC +02:00)
+    timezone: "Europe/Bucharest"
+  commit-message:
+    prefix: "dependabot"
+    include: scope
+  labels:
+    - "kind/cleanup"
+    - "dependabot"
+# Go
+- directory: "/"
+  package-ecosystem: "gomod"
+  schedule:
+    interval: "daily"
+    time: "09:00"
+    # Use Europe/Bucharest Standard Time (UTC +02:00)
+    timezone: "Europe/Bucharest"
+  commit-message:
+    prefix: "dependabot"
+    include: scope
+# TODO decide if we should enable ignore
+#  ignore:
+#    # Ignore controller-runtime as its upgraded manually.
+#    - dependency-name: "sigs.k8s.io/controller-runtime"
+#    # Ignore k8s and its transitives modules as they are upgraded manually together with controller-runtime.
+#    - dependency-name: "k8s.io/*"
+  labels:
+    - "kind/cleanup"
+    - "dependabot"

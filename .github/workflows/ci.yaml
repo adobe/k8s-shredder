@@ -28,7 +28,7 @@ jobs:
           # version: v1.46
            args: -v --timeout 5m --no-config ./...
       - name: Install k8s Kind Cluster
-        uses: helm/kind-action@v1.3.0
+        uses: helm/kind-action@v1.5.0
         with:
           install_only: true
           version: v0.14.0

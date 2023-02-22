@@ -13,7 +13,7 @@ default: help
 
 help: ## Print this help text
 	@printf "\n"
-	@awk "BEGIN {FS = ":.*?## "}; ($$2 && !/@awk/){printf "${CYAN}%-30s${NC} %s\n", $$1, $$2}" $(lastword ${MAKEFILE_LIST}) | sort
+	@awk 'BEGIN {FS = ":.*?## "}; ($$2 && !/@awk/){printf "${CYAN}%-30s${NC} %s\n", $$1, $$2}' $(lastword ${MAKEFILE_LIST}) | sort
 	@printf "\n"
 
 # CI
@@ -35,7 +35,7 @@ lint: ## Lint go code
 		echo >&2 "[WARN] I require golangci-lint but it's not installed (see https://github.com/golangci/golangci-lint). Skipping lint."; \
 	}
 
-vet:
+vet: ## Vetting go code
 	@echo 'Vetting go code and identify subtle source code issues...'
 	@go vet ./...
 	@echo 'Not issues found in go codebase!'

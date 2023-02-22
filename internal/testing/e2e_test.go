@@ -34,7 +34,7 @@ func TestNodeIsCleanedUp(t *testing.T) {
 	var err error
 
 	appContext, err := utils.NewAppContext(config.Config{
-		ParkedNodeTTL:                      1 * time.Minute,
+		ParkedNodeTTL:                      30 * time.Second,
 		EvictionLoopInterval:               10 * time.Second,
 		RollingRestartThreshold:            0.1,
 		UpgradeStatusLabel:                 "shredder.ethos.adobe.net/upgrade-status",
@@ -89,7 +89,7 @@ func TestNodeIsCleanedUp(t *testing.T) {
 
 func compareTime(expirationTime time.Time, t *testing.T, ch chan time.Time) {
 	currentTime := time.Now().UTC()
-	for !currentTime.After(expirationTime.UTC().Add(60 * time.Second)) {
+	for !currentTime.After(expirationTime.UTC()) {
 		t.Logf("Node TTL didn't expire yet: current time(UTC): %s, expire time(UTC): %s", currentTime, expirationTime.UTC())
 		time.Sleep(10 * time.Second)
 		currentTime = time.Now().UTC()

@@ -51,7 +51,7 @@ metadata:
 data:
   config.yaml: |-
     EvictionLoopInterval: 10s
-    ParkedNodeTTL: 1m
+    ParkedNodeTTL: 30s
     RollingRestartThreshold: 0.5
     UpgradeStatusLabel: "shredder.ethos.adobe.net/upgrade-status"
     ExpiresOnLabel: "shredder.ethos.adobe.net/parked-node-expires-on"

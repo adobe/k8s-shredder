@@ -20,7 +20,7 @@ updates:
 - directory: "/"
   package-ecosystem: "gomod"
   schedule:
-    interval: "daily"
+    interval: "weekly"
     time: "09:00"
     # Use Europe/Bucharest Standard Time (UTC +02:00)
     timezone: "Europe/Bucharest"

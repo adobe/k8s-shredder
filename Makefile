@@ -92,7 +92,7 @@ ci: local-test e2e-tests clean ## Run CI
 # PUBLISH
 # -----------
 publish: ## Release a new version
-	@goreleaser release --rm-dist
+	@goreleaser release --clean
 
 # CLEANUP
 # -----------

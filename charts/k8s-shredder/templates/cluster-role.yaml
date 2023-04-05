@@ -1,0 +1,18 @@
+{{ if .Values.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "k8s-shredder.fullname" . }}
+  labels:
+{{ include "k8s-shredder.labels" . | indent 4 }}
+rules:
+- apiGroups: ["*"]
+  resources: [nodes]
+  verbs: [get, list, watch]
+- apiGroups: ["*"]
+  resources: [pods, pods/eviction]
+  verbs: ["*"]
+- apiGroups: [apps, extensions]
+  resources: [statefulsets, deployments, replicasets]
+  verbs: [get, list, watch, update, patch]
+{{ end }}

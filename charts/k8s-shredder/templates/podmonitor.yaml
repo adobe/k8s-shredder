@@ -1,0 +1,30 @@
+{{ if .Values.podMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "k8s-shredder.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ include "k8s-shredder.labels" . | indent 4 }}
+  {{- with .Values.podMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  jobLabel: "k8s-shredder"
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+  podMetricsEndpoints:
+  - interval: {{ .Values.podMonitor.interval }}
+    path: /metrics
+    port: metrics
+    scheme: http
+    honorLabels: {{ .Values.podMonitor.honorLabels }}
+    {{- if .Values.podMonitor.relabelings }}
+    relabelings:
+      {{- toYaml .Values.podMonitor.relabelings | nindent 8 }}
+    {{- end }}
+  selector:
+    matchLabels:
+{{ include "k8s-shredder.matchLabels" . | indent 6 }}
+{{- end }}

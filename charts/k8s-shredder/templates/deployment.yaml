@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "k8s-shredder.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ include "k8s-shredder.labels" . | indent 4 }}
+{{- if .Values.podAnnotations }}
+  annotations:
+{{ include "k8s-shredder.annotations" . | indent 4 }}
+{{- end }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+{{- with .Values.deploymentStrategy }}
+  strategy:
+{{- toYaml . | nindent 4 }}
+{{- end }}
+  selector:
+    matchLabels:
+{{ include "k8s-shredder.matchLabels" . | indent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "k8s-shredder.labels" . | indent 8 }}
+      {{- if .Values.podAnnotations }}
+      annotations:
+      {{ include "k8s-shredder.annotations" . | indent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "k8s-shredder.serviceAccountName" . }}
+      securityContext:
+      {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+      {{- with .Values.initContainers }}
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+              {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.registry }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+          - "--config=/k8s-shredder-config/config.yaml"
+          - "--metrics-port=8080"
+          {{- if .Values.dryRun }}
+          - "--dry-run"
+          {{- end }}
+          env:
+            {{- with .Values.environmentVars }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - name: k8s-shredder-config-volume
+              mountPath: /k8s-shredder-config
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 5
+          resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+        {{- with .Values.additionalContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      volumes:
+        - name: k8s-shredder-config-volume
+          configMap:
+            defaultMode: 420
+            name: {{ include "k8s-shredder.fullname" . }}-config
+        {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName }}
+      {{- end }}

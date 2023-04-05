@@ -1,0 +1,94 @@
+image:
+  registry: ghcr.io/adobe/k8s-shredder
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+deploymentStrategy: {}
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+environmentVars: []
+
+dryRun: false
+
+shredder:
+  EvictionLoopInterval: "1h"
+  ParkedNodeTTL: "168h"  # 7 days
+  RollingRestartThreshold: 0.1
+  UpgradeStatusLabel: "shredder.ethos.adobe.net/upgrade-status"
+  ExpiresOnLabel: "shredder.ethos.adobe.net/parked-node-expires-on"
+  NamespacePrefixSkipInitialEviction: "ns-ethos-"
+  RestartedAtAnnotation: "shredder.ethos.adobe.net/restartedAt"
+  AllowEvictionLabel: "shredder.ethos.adobe.net/allow-eviction"
+  ToBeDeletedTaint: "ToBeDeletedByClusterAutoscaler"
+
+rbac:
+  create: true
+
+serviceAccount:
+  create: true
+  name: k8s-shredder
+  annotations: {}
+
+# Annotations for k8s-shredder pod(s).
+podAnnotations: {}
+
+# Additional labels for the k8s-shredder pod(s).
+podLabels: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+# Init containers to add into the deployment template spec
+initContainers: []
+
+# Additional containers to add into the deployment template spec
+additionalContainers: []
+
+resources:
+  limits:
+    cpu: "1"
+    memory: 1Gi
+  requests:
+    cpu: 250m
+    memory: 250Mi
+
+volumes: []
+# - name: ca
+#   secret:
+#     secretName: k8s-shredder-ca
+#     items:
+#       - key: ca.pem
+#         path: ca.pem
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+podMonitor:
+  enabled: false
+  labels: {}
+    # app: k8s-shredder
+    # subsystem: k8s-a
+  interval: 60s
+  scrapeTimeout: 10s
+  honorLabels: true
+  relabelings: []
+
+# A priority class can be optionally attached to the pod spec if one is needed
+priorityClassName: system-cluster-critical
+
+## Topology spread constraints rely on node labels to identify the topology domain(s) that each Node is in.
+## Ref: https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/
+topologySpreadConstraints: []
+  # - maxSkew: 1
+  #   topologyKey: topology.kubernetes.io/zone
+  #   whenUnsatisfiable: DoNotSchedule
+  #   labelSelector:
+  #     matchLabels:
+#       app.kubernetes.io/name=k8s-shredder

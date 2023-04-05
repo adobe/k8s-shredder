@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "k8s-shredder.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ include "k8s-shredder.labels" . | indent 4 }}
+data:
+  config.yaml: |-
+    EvictionLoopInterval: "{{.Values.shredder.EvictionLoopInterval}}"
+    ParkedNodeTTL: "{{.Values.shredder.ParkedNodeTTL}}"
+    RollingRestartThreshold: "{{.Values.shredder.RollingRestartThreshold}}"
+    UpgradeStatusLabel: "{{.Values.shredder.UpgradeStatusLabel}}"
+    ExpiresOnLabel: "{{.Values.shredder.ExpiresOnLabel}}"
+    NamespacePrefixSkipInitialEviction: "{{.Values.shredder.NamespacePrefixSkipInitialEviction}}"
+    RestartedAtAnnotation: "{{.Values.shredder.RestartedAtAnnotation}}"
+    AllowEvictionLabel: "{{.Values.shredder.AllowEvictionLabel}}"
+    ToBeDeletedTaint: "{{.Values.shredder.ToBeDeletedTaint}}"

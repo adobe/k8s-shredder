@@ -13,7 +13,7 @@ spec:
   jobLabel: "k8s-shredder"
   namespaceSelector:
     matchNames:
-    - kube-system
+    - {{ .Release.Namespace }}
   podMetricsEndpoints:
   - interval: {{ .Values.podMonitor.interval }}
     path: /metrics

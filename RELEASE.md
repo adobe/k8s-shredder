@@ -1,4 +1,16 @@
-## Releasing new `k8s-shredder` version
+All k8s-shredder binaries, container image and helm chart are released using github actions workflows.
+See [release workflow](.github/workflows/release.yaml) and [release chart workflow](.github/workflows/release-chart.yaml) for more details.
+
+For publishing a new release follow below steps:
+
+```
+export NEW_VERSION=vX.Y.Z
+git tag -a ${NEW_VERSION} -m "Release ${NEW_VERSION}"
+git push origin ${NEW_VERSION}
+```
+
+
+## Manually Releasing new `k8s-shredder` version
 
 For release process we're using [`goreleaser`](https://goreleaser.com/). You must install it first before being able to
 release a new version.

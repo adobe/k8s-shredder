@@ -1,22 +1,18 @@
-name: ci
+name: CI tests
 
-on:
-  push:
-    branches:
-      - main
-  pull_request:
+on: pull_request
 
 jobs:
   ci:
     runs-on: ubuntu-latest
-    name: CI tests
+    name: ci
     steps:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: 1.19
+          go-version: '1.20'
       - name: Run Gosec Security Scanner
         uses: securego/gosec@master
         with:
@@ -31,7 +27,6 @@ jobs:
         uses: helm/kind-action@v1.5.0
         with:
           install_only: true
-          version: v0.14.0
       - name: Prepare test environment
         run: make local-test
       - name: Run e2e tests

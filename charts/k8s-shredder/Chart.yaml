@@ -1,0 +1,16 @@
+apiVersion: v2
+name: k8s-shredder
+
+description: K8s-shredder introduces the concept of parked nodes which aims to address some critical aspects on a Kubernetes cluster while rotating the worker nodes during a cluster upgrade.
+
+type: application
+
+home: https://github.com/adobe/k8s-shredder
+icon: https://raw.githubusercontent.com/adobe/k8s-shredder/main/docs/k8s-shredder_logo.jpg
+maintainers:
+- name: adriananeci
+  email: aneci@adobe.com
+  url: https://adobe.com
+
+version: 0.0.1
+appVersion: v0.1.7

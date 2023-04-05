@@ -6,23 +6,20 @@ release:
 builds:
   - id: k8s-shredder
     goos:
-    - linux
-    - windows
-    - darwin
+      - linux
+      - windows
+      - darwin
     goarch:
-    - amd64
-    - "386"
-    - arm64
+      - amd64
+      - "386"
+      - arm64
     env:
       - CGO_ENABLED=0
-    main: main.go
+    main: .
     ldflags:
-      -s 
-      -w
-      -X github.com/adobe/k8s-shredder/cmd.buildVersion=v{{.Version}}
-      -X github.com/adobe/k8s-shredder/cmd.gitSHA={{.Commit}}
-      -X github.com/adobe/k8s-shredder/cmd.buildTime={{.Date}}
-    flags: -trimpath
+      - -s -w -X github.com/adobe/k8s-shredder/cmd.buildVersion=v{{.Version}} -X github.com/adobe/k8s-shredder/cmd.gitSHA={{.Commit}} -X github.com/adobe/k8s-shredder/cmd.buildTime={{.Date}}
+    flags:
+      - -trimpath
     binary: k8s-shredder
 
 # signs the checksum file

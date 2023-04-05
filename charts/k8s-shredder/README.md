@@ -10,7 +10,7 @@ K8s-shredder introduces the concept of parked nodes which aims to address some c
 
 | Name | Email | Url |
 | ---- | ------ | --- |
-| Adrian Aneci | <aneci@adobe.com> | <https://adobe.com> |
+| adriananeci | <aneci@adobe.com> | <https://adobe.com> |
 
 ## Values
 
@@ -23,8 +23,7 @@ K8s-shredder introduces the concept of parked nodes which aims to address some c
 | environmentVars | list | `[]` |  |
 | fullnameOverride | string | `""` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
-| image.repository | string | `"ghcr.io/adobe/k8s-shredder"` |  |
-| image.tag | string | `"v0.1.7"` |  |
+| image.registry | string | `"ghcr.io/adobe/k8s-shredder"` |  |
 | imagePullSecrets | list | `[]` |  |
 | initContainers | list | `[]` |  |
 | nameOverride | string | `""` |  |

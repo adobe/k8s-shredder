@@ -1,7 +1,5 @@
 image:
-  repository: ghcr.io/adobe/k8s-shredder
-  tag: v0.1.7
-
+  registry: ghcr.io/adobe/k8s-shredder
   pullPolicy: IfNotPresent
 
 replicaCount: 1

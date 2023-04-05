@@ -26,6 +26,5 @@ spec:
     {{- end }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "k8s-shredder.name" . }}
-      app.kubernetes.io/instance: {{ .Release.Name }}
+{{ include "k8s-shredder.matchLabels" . | indent 6 }}
 {{- end }}

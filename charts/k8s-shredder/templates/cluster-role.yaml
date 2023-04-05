@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: k8s-shredder
+  name: {{ include "k8s-shredder.fullname" . }}
   labels:
 {{ include "k8s-shredder.labels" . | indent 4 }}
 rules:

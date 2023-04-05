@@ -31,7 +31,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ template "k8s-shredder.serviceAccountName" . }}
+      serviceAccountName: {{ include "k8s-shredder.serviceAccountName" . }}
       securityContext:
       {{- toYaml .Values.podSecurityContext | nindent 8 }}
       initContainers:
@@ -42,7 +42,7 @@ spec:
         - name: {{ .Chart.Name }}
           securityContext:
               {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ .Values.image.registry }}:{{ .Values.image.tag | default .Chart.AppVersion }}""
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
           - "--config=/k8s-shredder-config/config.yaml"

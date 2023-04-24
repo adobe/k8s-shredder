@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/fsnotify/fsnotify v1.6.0
-	github.com/go-co-op/gocron v1.22.1
+	github.com/go-co-op/gocron v1.23.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.15.0
 	github.com/prometheus/common v0.42.0
@@ -64,7 +64,6 @@ require (
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/oauth2 v0.5.0 // indirect
-	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.6.0 // indirect
 	golang.org/x/term v0.6.0 // indirect
 	golang.org/x/text v0.8.0 // indirect

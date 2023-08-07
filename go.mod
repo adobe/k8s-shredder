@@ -17,7 +17,7 @@ require (
 	k8s.io/client-go v0.27.4
 	k8s.io/kubectl v0.27.4
 	k8s.io/utils v0.0.0-20230220204549-a5ecb0141aa5
-	sigs.k8s.io/controller-runtime v0.15.0
+	sigs.k8s.io/controller-runtime v0.15.1
 )
 
 require (

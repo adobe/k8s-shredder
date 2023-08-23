@@ -32,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	deploymentutil "k8s.io/kubectl/pkg/util/deployment"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 // Handler encapsulates the logic of the eviction loop
@@ -171,7 +171,7 @@ func (h *Handler) processNode(node v1.Node, rr chan *controllerObject) error {
 	if time.Now().UTC().After(expiresOn) {
 		h.logger.Infof("Force evicting pods from expired parked node %s", node.Name)
 
-		deleteOptions.GracePeriodSeconds = pointer.Int64(0)
+		deleteOptions.GracePeriodSeconds = ptr.To[int64](0)
 
 		for _, pod := range podList {
 			err = h.deletePod(pod, deleteOptions)

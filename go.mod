@@ -1,6 +1,6 @@
 module github.com/adobe/k8s-shredder
 
-go 1.20
+go 1.21
 
 require (
 	github.com/fsnotify/fsnotify v1.6.0
@@ -11,13 +11,13 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
-	golang.org/x/exp v0.0.0-20230213192124-5e25df0256eb
+	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
 	k8s.io/api v0.28.0
 	k8s.io/apimachinery v0.28.0
 	k8s.io/client-go v0.28.0
 	k8s.io/kubectl v0.28.0
-	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
-	sigs.k8s.io/controller-runtime v0.15.1
+	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
+	sigs.k8s.io/controller-runtime v0.16.0
 )
 
 require (
@@ -66,7 +66,7 @@ require (
 	golang.org/x/net v0.13.0 // indirect
 	golang.org/x/oauth2 v0.8.0 // indirect
 	golang.org/x/sync v0.2.0 // indirect
-	golang.org/x/sys v0.10.0 // indirect
+	golang.org/x/sys v0.11.0 // indirect
 	golang.org/x/term v0.10.0 // indirect
 	golang.org/x/text v0.11.0 // indirect
 	golang.org/x/time v0.3.0 // indirect

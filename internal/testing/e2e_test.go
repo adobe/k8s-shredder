@@ -90,7 +90,7 @@ func TestNodeIsCleanedUp(t *testing.T) {
 func compareTime(expirationTime time.Time, t *testing.T, ch chan time.Time) {
 	currentTime := time.Now().UTC()
 	for !currentTime.After(expirationTime.UTC()) {
-		t.Logf("Node TTL didn't expire yet: current time(UTC): %s, expire time(UTC): %s", currentTime, expirationTime.UTC())
+		t.Logf("Node TTL haven't expired yet: current time(UTC): %s, expire time(UTC): %s", currentTime, expirationTime.UTC())
 		time.Sleep(10 * time.Second)
 		currentTime = time.Now().UTC()
 	}

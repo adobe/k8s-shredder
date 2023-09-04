@@ -27,7 +27,7 @@ jobs:
       with:
         go-version: '1.21'
         cache: true
-    - uses: sigstore/cosign-installer@v3.1.1         # installs cosign
+    - uses: sigstore/cosign-installer@v3.1.2         # installs cosign
 #    - uses: anchore/sbom-action/download-syft@v0.14.1 # installs syft
     - uses: docker/login-action@v2                   # login to ghcr
       with:

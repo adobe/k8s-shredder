@@ -1,7 +1,3 @@
-![K8s-Shredder project](docs/k8s-shredder_logo.jpg)
-
-[comment]: <> (<img src="docs/k8s-shredder_logo.jpg" alt="K8s-Shredder project" width="50%" height="50%"/>)
-
 # K8s-shredder - a new way of parking in Kubernetes
 
 [![tests](https://github.com/adobe/k8s-shredder/actions/workflows/ci.yaml/badge.svg)](https://github.com/adobe/k8s-shredder/actions/workflows/ci.yaml)
@@ -10,6 +6,10 @@
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/adobe/k8s-shredder)
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/adobe/k8s-shredder)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
+<p align="center">
+  <img src="docs/shredder_firefly.png" alt="K8s-Shredder project">
+</p>
 
 As more and more teams running their workloads on Kubernetes started deploying stateful applications(kafka, zookeeper, 
 rabbitmq, redis, etc) on top of a Kubernetes platform, there might be challenges on finding solutions for keeping alive the minion 

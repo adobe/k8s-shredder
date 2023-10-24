@@ -2,7 +2,7 @@
 
 NAME ?= adobe/k8s-shredder
 K8S_SHREDDER_VERSION ?= "dev"
-KINDNODE_VERSION ?= "v1.25.11"
+KINDNODE_VERSION ?= "v1.28.0"
 COMMIT ?= $(shell git rev-parse --short HEAD)
 TEST_CLUSTERNAME ?= "k8s-shredder-test-cluster"
 
@@ -78,12 +78,18 @@ e2e-tests:  ## Run e2e tests for k8s-shredder deployed in a local kind cluster
 	@echo "Run e2e tests for k8s-shredder..."
 	@KUBECONFIG=${PWD}/kubeconfig go test internal/testing/e2e_test.go -v
 
+# DEMO targets
+# -----------
+.PHONY: demo.prep demo.run demo.rollback
 demo.prep: build ## Setup demo cluster
 	echo "Setup demo cluster..."
 	./internal/testing/local_env_prep.sh "${K8S_SHREDDER_VERSION}" "${KINDNODE_VERSION}" "${TEST_CLUSTERNAME}"
 
 demo.run: ## Run demo
 	./internal/testing/cluster_upgrade.sh "${TEST_CLUSTERNAME}"
+
+demo.rollback: ## Rollback demo
+	./internal/testing/rollback_cluster_upgrade.sh "${TEST_CLUSTERNAME}"
 
 
 ci: local-test e2e-tests clean ## Run CI

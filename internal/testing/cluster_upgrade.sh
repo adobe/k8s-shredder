@@ -19,15 +19,16 @@ fi
 
 kubectl label node "${K8S_CLUSTER_NAME}-worker" --kubeconfig=kubeconfig --overwrite shredder.ethos.adobe.net/parked-node-expires-on="${EXPIRES_ON}"
 
-while [[ $pod_status != "No resources found" ]]
-do
-  echo "Info: Waiting for all pods to be evicted from the node..."
-  sleep 10
-  pod_status=$(kubectl get pods -A --field-selector metadata.namespace!=kube-system,metadata.namespace!=local-path-storage,spec.nodeName=k8s-shredder-test-cluster-worker 2>&1 >/dev/null)
-done
+if [[ ${WAIT_FOR_PODS:-false} == "true" ]]
+then
+  while [[ $pod_status != "No resources found" ]]
+  do
+    echo "Info: Waiting for all pods to be evicted from the node..."
+    sleep 10
+    pod_status=$(kubectl get pods -A --field-selector metadata.namespace!=kube-system,metadata.namespace!=local-path-storage,spec.nodeName=k8s-shredder-test-cluster-worker 2>&1 >/dev/null)
+  done
 
-# This is to simulate the upgrade process. We are going to wait for 1 minute and then uncordon the node.
-kubectl label node "${K8S_CLUSTER_NAME}-worker" --kubeconfig=kubeconfig shredder.ethos.adobe.net/upgrade-status-
-kubectl label node "${K8S_CLUSTER_NAME}-worker" --kubeconfig=kubeconfig --overwrite shredder.ethos.adobe.net/parked-node-expires-on-
-
-
+  # This is to simulate the upgrade process. We are going to wait for 1 minute and then uncordon the node.
+  kubectl label node "${K8S_CLUSTER_NAME}-worker" --kubeconfig=kubeconfig shredder.ethos.adobe.net/upgrade-status-
+  kubectl label node "${K8S_CLUSTER_NAME}-worker" --kubeconfig=kubeconfig --overwrite shredder.ethos.adobe.net/parked-node-expires-on-
+fi

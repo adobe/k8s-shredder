@@ -16,6 +16,20 @@ spec:
       labels:
         app: k8s-shredder
     spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            preference:
+              matchExpressions:
+              - key: node.kubernetes.io/role
+                operator: In
+                values:
+                - master
+      tolerations:
+      - key: "node-role.kubernetes.io/control-plane"
+        operator: "Exists"
+        effect: "NoSchedule"
       serviceAccountName: k8s-shredder
       containers:
         - name: k8s-shredder
@@ -23,6 +37,7 @@ spec:
           args:
             - "--config=/k8s-shredder-config/config.yaml"
             - "--metrics-port=8080"
+            - "--log-level=info"
             # For running it in dry run, without taking any real eviction actions
             # - "--dry-run"
           ports:

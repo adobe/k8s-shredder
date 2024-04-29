@@ -7,7 +7,6 @@ toolchain go1.22.2
 require (
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-co-op/gocron v1.37.0
-	github.com/go-co-op/gocron/v2 v2.2.10
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.19.0
 	github.com/prometheus/common v0.53.0
@@ -20,7 +19,7 @@ require (
 	k8s.io/client-go v0.30.0
 	k8s.io/kubectl v0.30.0
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57
-	sigs.k8s.io/controller-runtime v0.17.3
+	sigs.k8s.io/controller-runtime v0.18.0
 )
 
 require (
@@ -62,6 +61,7 @@ require (
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.6.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/stretchr/testify v1.9.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect

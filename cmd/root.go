@@ -20,7 +20,7 @@ import (
 	"github.com/adobe/k8s-shredder/pkg/metrics"
 	"github.com/adobe/k8s-shredder/pkg/utils"
 	"github.com/fsnotify/fsnotify"
-	"github.com/go-co-op/gocron"
+	"github.com/go-co-op/gocron/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -32,7 +32,7 @@ var (
 	metricsPort                  int
 	cfg                          config.Config
 	appContext                   *utils.AppContext
-	scheduler                    *gocron.Scheduler
+	scheduler                    gocron.Scheduler
 
 	rootCmd = &cobra.Command{
 		Use:              "k8s-shredder",
@@ -163,21 +163,42 @@ func preRun(cmd *cobra.Command, args []string) {
 }
 
 func run(cmd *cobra.Command, args []string) {
-	scheduler = gocron.NewScheduler(time.UTC)
+	s, err := gocron.NewScheduler(gocron.WithLocation(time.UTC))
+	defer func() { _ = s.Shutdown() }()
 
-	h := handler.NewHandler(appContext)
-	_, err := scheduler.Every(cfg.EvictionLoopInterval).Do(h.Run)
 	if err != nil {
-		log.Fatalf("Failed to start scheduler: %s", err)
+		log.Fatalf("Failed to create scheduler: %s", err)
 	}
 
-	scheduler.StartAsync()
+	h := handler.NewHandler(appContext)
 
+	job, err := s.NewJob(
+		gocron.DurationJob(
+			cfg.EvictionLoopInterval,
+		),
+		gocron.NewTask(
+			h.Run,
+		),
+	)
+
+	if err != nil {
+		log.Fatalf("Failed to configure scheduler's job: %s", err)
+	}
+	// each job has a unique id
+	log.Infof("Configured scheduler's job ID: %s", job.ID())
+
+	s.Start()
 	select {}
 }
 
 func reset() {
 	// clear all running jobs and stop the scheduler
-	scheduler.Clear()
-	scheduler.Stop()
+	err := scheduler.StopJobs()
+	if err != nil {
+		log.Errorf("Failed to stop running jobs: %s", err)
+	}
+	err = scheduler.Shutdown()
+	if err != nil {
+		log.Errorf("Failed to shutdown scheduler: %s", err)
+	}
 }

@@ -2,6 +2,24 @@ apiVersion: v1
 entries:
   k8s-shredder:
   - apiVersion: v2
+    appVersion: v0.2.1
+    created: "2024-05-17T12:18:05.783775716Z"
+    description: K8s-shredder introduces the concept of parked nodes which aims to
+      address some critical aspects on a Kubernetes cluster while rotating the worker
+      nodes during a cluster upgrade.
+    digest: cffc39d613f386b10fd840767a86e7bd8b17d99b5e6a3d91a0a4ed22e5c73b6f
+    home: https://github.com/adobe/k8s-shredder
+    icon: https://raw.githubusercontent.com/adobe/k8s-shredder/main/docs/k8s-shredder_logo.jpg
+    maintainers:
+    - email: aneci@adobe.com
+      name: adriananeci
+      url: https://adobe.com
+    name: k8s-shredder
+    type: application
+    urls:
+    - https://github.com/adobe/k8s-shredder/releases/download/Helm-Chart-v0.1.0/k8s-shredder-0.1.0.tgz
+    version: 0.1.0
+  - apiVersion: v2
     appVersion: v0.2.0
     created: "2023-08-23T12:55:34.931067614Z"
     description: K8s-shredder introduces the concept of parked nodes which aims to
@@ -37,4 +55,4 @@ entries:
     urls:
     - https://github.com/adobe/k8s-shredder/releases/download/Helm-Chart-v0.0.1/k8s-shredder-0.0.1.tgz
     version: 0.0.1
-generated: "2023-08-23T12:55:34.931074214Z"
+generated: "2024-05-17T12:18:05.783787789Z"

@@ -12,6 +12,7 @@ governing permissions and limitations under the License.
 package cmd
 
 import (
+	"github.com/google/uuid"
 	"strings"
 	"time"
 
@@ -163,8 +164,9 @@ func preRun(cmd *cobra.Command, args []string) {
 }
 
 func run(cmd *cobra.Command, args []string) {
-	s, err := gocron.NewScheduler(gocron.WithLocation(time.UTC))
-	defer func() { _ = s.Shutdown() }()
+	var err error
+	scheduler, err = gocron.NewScheduler(gocron.WithLocation(time.UTC))
+	defer func() { _ = scheduler.Shutdown() }()
 
 	if err != nil {
 		log.Fatalf("Failed to create scheduler: %s", err)
@@ -172,7 +174,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	h := handler.NewHandler(appContext)
 
-	job, err := s.NewJob(
+	job, err := scheduler.NewJob(
 		gocron.DurationJob(
 			cfg.EvictionLoopInterval,
 		),
@@ -184,10 +186,18 @@ func run(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatalf("Failed to configure scheduler's job: %s", err)
 	}
-	// each job has a unique id
-	log.Infof("Configured scheduler's job ID: %s", job.ID())
 
-	s.Start()
+	// each job has a unique id
+	log.Infof("Configured scheduler job with ID: %s", job.ID())
+
+	activeJobs := make([]uuid.UUID, 0)
+	for _, j := range scheduler.Jobs() {
+		activeJobs = append(activeJobs, j.ID())
+	}
+	log.Infoln("Active jobs:", activeJobs)
+
+	scheduler.Start()
+	log.Info("Scheduler started, happy shredding!")
 	select {}
 }
 

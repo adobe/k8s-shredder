@@ -29,6 +29,24 @@ import (
 	"time"
 )
 
+var (
+	// Intentionally skipped the gauge metrics as they are going to be wiped out before every eviction loop
+	shredderMetrics = []string{
+		"shredder_loops_total",
+		"shredder_loops_duration_seconds",
+		"shredder_processed_nodes_total",
+		"shredder_processed_pods_total",
+		"shredder_errors_total",
+	}
+
+	// Intentionally skipped the gauge metrics as they are going to be wiped out before every eviction loop
+	shredderGaugeMetrics = []string{
+		"shredder_pod_errors_total",
+		"shredder_node_force_to_evict_time",
+		"shredder_pod_force_to_evict_time",
+	}
+)
+
 // Validates that k8s-shredder cleanup a parked node after its TTL expires
 func TestNodeIsCleanedUp(t *testing.T) {
 	var err error
@@ -72,6 +90,11 @@ func TestNodeIsCleanedUp(t *testing.T) {
 
 	t.Logf("Node TTL expired: current time(UTC): %s, expire time(UTC): %s", currentTime, expirationTime.UTC())
 
+	grabMetrics(append(shredderMetrics, shredderGaugeMetrics...), t)
+
+	// Sleep a bit to let the apiserver catch up
+	time.Sleep(10 * time.Second)
+
 	pods, err := h.GetPodsForNode(*node)
 
 	if err != nil {
@@ -89,18 +112,17 @@ func TestNodeIsCleanedUp(t *testing.T) {
 
 func compareTime(expirationTime time.Time, t *testing.T, ch chan time.Time) {
 	currentTime := time.Now().UTC()
+
 	for !currentTime.After(expirationTime.UTC()) {
 		t.Logf("Node TTL haven't expired yet: current time(UTC): %s, expire time(UTC): %s", currentTime, expirationTime.UTC())
 		time.Sleep(10 * time.Second)
 		currentTime = time.Now().UTC()
+
 	}
 	ch <- currentTime
 }
 
 func TestShredderMetrics(t *testing.T) {
-
-	var warnings []string
-	var results []string
 
 	// Intentionally skipped the gauge metrics as they are going to be wiped out before every eviction loop
 	shredderMetrics := []string{
@@ -110,6 +132,17 @@ func TestShredderMetrics(t *testing.T) {
 		"shredder_processed_pods_total",
 		"shredder_errors_total",
 	}
+
+	results := grabMetrics(shredderMetrics, t)
+
+	if len(results) == len(shredderMetrics) {
+		t.Log("Metrics validation test passed!")
+	}
+}
+
+func grabMetrics(shredderMetrics []string, t *testing.T) []string {
+	results := make([]string, 0)
+	warnings := make([]string, 0)
 
 	for _, shredderMetric := range shredderMetrics {
 		result, warning, err := prometheusQuery(shredderMetric)
@@ -126,9 +159,7 @@ func TestShredderMetrics(t *testing.T) {
 
 	t.Logf("Results: \n%v\n", strings.Join(results, "\n"))
 
-	if len(results) == len(shredderMetrics) {
-		t.Log("Metrics validation test passed!")
-	}
+	return results
 }
 
 func prometheusQuery(query string) (model.Value, v1.Warnings, error) {

@@ -5,6 +5,7 @@
 # build artifacts
 kubeconfig
 dist
+k8s-shredder
 
 # Test binary, build with `go test -c`
 *.test

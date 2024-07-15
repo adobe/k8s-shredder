@@ -4,7 +4,7 @@ go 1.22.3
 
 require (
 	github.com/fsnotify/fsnotify v1.7.0
-	github.com/go-co-op/gocron/v2 v2.9.0
+	github.com/go-co-op/gocron/v2 v2.10.0
 	github.com/google/uuid v1.6.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.19.1
@@ -71,7 +71,6 @@ require (
 	golang.org/x/term v0.21.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect

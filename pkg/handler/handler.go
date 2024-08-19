@@ -103,7 +103,7 @@ func (h *Handler) Run() error {
 
 	nodeList, err := h.getParkedNodes()
 	if err != nil {
-		h.logger.Errorf(err.Error())
+		h.logger.Errorf("%s", err.Error())
 		metrics.ShredderErrorsTotal.Inc()
 		loopTimer.ObserveDuration()
 		return err
@@ -124,7 +124,7 @@ func (h *Handler) Run() error {
 			defer wg.Done()
 			err := h.processNode(node, rr)
 			if err != nil {
-				h.logger.Errorf(err.Error())
+				h.logger.Errorf("%s", err.Error())
 				metrics.ShredderErrorsTotal.Inc()
 			}
 		}(node, &wg)

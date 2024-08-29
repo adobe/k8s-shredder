@@ -33,4 +33,6 @@ type Config struct {
 	AllowEvictionLabel string
 	// ToBeDeletedTaint is used for skipping a subset of parked nodes
 	ToBeDeletedTaint string
+	// ArgoRolloutsAPIVersion is used for specifying the API version from `argoproj.io` apigroup to be used while handling Argo Rollouts objects
+	ArgoRolloutsAPIVersion string
 }

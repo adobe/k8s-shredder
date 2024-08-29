@@ -114,6 +114,7 @@ func discoverConfig() {
 	viper.SetDefault("RestartedAtAnnotation", "shredder.ethos.adobe.net/restartedAt")
 	viper.SetDefault("AllowEvictionLabel", "shredder.ethos.adobe.net/allow-eviction")
 	viper.SetDefault("ToBeDeletedTaint", "ToBeDeletedByClusterAutoscaler")
+	viper.SetDefault("ArgoRolloutsAPIVersion", "v1alpha1")
 
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -144,6 +145,7 @@ func parseConfig() {
 		"RestartedAtAnnotation":              cfg.RestartedAtAnnotation,
 		"AllowEvictionLabel":                 cfg.AllowEvictionLabel,
 		"ToBeDeletedTaint":                   cfg.ToBeDeletedTaint,
+		"ArgoRolloutsAPIVersion":             cfg.ArgoRolloutsAPIVersion,
 	}).Info("Loaded configuration")
 }
 

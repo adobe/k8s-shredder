@@ -15,6 +15,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"golang.org/x/exp/slices"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"strings"
 	"sync"
 	"time"
@@ -226,15 +228,15 @@ func (h *Handler) processNode(node v1.Node, rr chan *controllerObject) error {
 			continue
 		}
 
-		// For pods handled by a deployment or statefulset controller, try to rollout restart those objects
-		if slices.Contains([]string{"Deployment", "StatefulSet"}, co.Kind) {
+		// For pods handled by a deployment, statefulset or argo rollouts controller, try to rollout restart those objects
+		if slices.Contains([]string{"Deployment", "StatefulSet", "Rollout"}, co.Kind) {
 			rolloutRestartInProgress, err := h.isRolloutRestartInProgress(co)
 			if err != nil {
 				h.logger.WithField("key", co.Fingerprint()).Warnf("Failed to get rollout status: %s", err.Error())
 				metrics.ShredderErrorsTotal.Inc()
 				continue
 			}
-			// if the rollout restart process is in progress, evict the pod instead of trying t do another rollout restart
+			// if the rollout restart process is in progress, evict the pod instead of trying to do another rollout restart
 			if rolloutRestartInProgress {
 				err := h.evictPod(pod, deleteOptions)
 				if err != nil {
@@ -360,11 +362,36 @@ func (h *Handler) getControllerObject(pod v1.Pod) (*controllerObject, error) {
 			h.logger.Warnf("Pod %s is controlled by an isolated ReplicaSet", pod.Name)
 			return co, nil
 		}
-		deployment, err := h.appContext.K8sClient.AppsV1().Deployments(pod.Namespace).Get(h.appContext.Context, replicaSet.OwnerReferences[0].Name, metav1.GetOptions{})
-		if err != nil {
-			return co, err
+
+		switch replicaSet.OwnerReferences[0].Kind {
+		case "Deployment":
+
+			deployment, err := h.appContext.K8sClient.AppsV1().Deployments(pod.Namespace).Get(h.appContext.Context, replicaSet.OwnerReferences[0].Name, metav1.GetOptions{})
+			if err != nil {
+				return co, err
+			}
+			return newControllerObject("Deployment", deployment.Name, deployment.Namespace, deployment), nil
+		case "Rollout":
+			// Make sure we are dealing with an Argo Rollout
+			if replicaSet.OwnerReferences[0].APIVersion == fmt.Sprintf("argoproj.io/%s", h.appContext.Config.ArgoRolloutsAPIVersion) {
+
+				gvr := schema.GroupVersionResource{
+					Group:    "argoproj.io",
+					Version:  h.appContext.Config.ArgoRolloutsAPIVersion,
+					Resource: "rollouts",
+				}
+
+				rollout, err := h.appContext.DynamicK8SClient.Resource(gvr).Namespace(pod.Namespace).Get(h.appContext.Context, replicaSet.OwnerReferences[0].Name, metav1.GetOptions{})
+				if err != nil {
+					return co, err
+				}
+				return newControllerObject("Rollout", rollout.GetName(), rollout.GetNamespace(), rollout), nil
+			} else {
+				return co, errors.Errorf("Controller object of type %s from %s API group is not supported! Please file a git issue or contribute it!", replicaSet.OwnerReferences[0].Kind, replicaSet.OwnerReferences[0].APIVersion)
+			}
+		default:
+			return co, errors.Errorf("Controller object of type %s from %s API group is not supported! Please file a git issue or contribute it!", pod.OwnerReferences[0].Kind, pod.OwnerReferences[0].APIVersion)
 		}
-		return newControllerObject("Deployment", deployment.Name, deployment.Namespace, deployment), nil
 
 	case "DaemonSet":
 		h.logger.Warnf("DaemonSets are not covered")
@@ -425,6 +452,20 @@ func (h *Handler) isRolloutRestartInProgress(co *controllerObject) (bool, error)
 		}
 		if sts.Status.UpdateRevision != sts.Status.CurrentRevision {
 			return true, nil
+		}
+	case "Rollout":
+		rollout := co.Object.(*unstructured.Unstructured)
+
+		// TODO - check if the other rollout conditions should be checked as well
+		// See https://github.com/argoproj/argo-rollouts/blob/bfef7f0d2bb71b085398c35ec95c1b2aacd07187/rollout/sync.go#L618
+		isPaused, found, err := unstructured.NestedBool(rollout.Object, "spec", "paused")
+		if err != nil {
+			return false, err
+		}
+
+		if found && isPaused {
+			h.logger.Warnf("Argo Rollout %s is currently paused, won't restart it!", rollout.GetName())
+			return false, nil
 		}
 	default:
 		return false, errors.Errorf("rollout restart not supported for object of type %s", co.Kind)
@@ -514,8 +555,6 @@ func (h *Handler) doRolloutRestart(co *controllerObject) error {
 		if err != nil {
 			return err
 		}
-	case "DaemonSet":
-		return errors.Errorf("DaemonSets are not covered")
 	case "StatefulSet":
 		sts := co.Object.(*appsv1.StatefulSet)
 		_, err := h.appContext.K8sClient.AppsV1().StatefulSets(sts.Namespace).
@@ -523,6 +562,26 @@ func (h *Handler) doRolloutRestart(co *controllerObject) error {
 		if err != nil {
 			return err
 		}
+	case "Rollout":
+		rollout := co.Object.(*unstructured.Unstructured)
+		gvr := schema.GroupVersionResource{
+			Group:    "argoproj.io",
+			Version:  h.appContext.Config.ArgoRolloutsAPIVersion,
+			Resource: "rollouts",
+		}
+
+		patchDataRollout, _ := json.Marshal(map[string]interface{}{
+			"spec": map[string]interface{}{
+				"restartAt": restartedAt,
+			},
+		})
+
+		_, err := h.appContext.DynamicK8SClient.Resource(gvr).Namespace(rollout.GetNamespace()).Patch(h.appContext.Context, rollout.GetName(), types.MergePatchType, patchDataRollout, patchOptions)
+		if err != nil {
+			return err
+		}
+	case "DaemonSet":
+		return errors.Errorf("DaemonSets are not covered")
 	default:
 		return errors.Errorf("invalid controller object")
 	}

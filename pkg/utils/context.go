@@ -14,33 +14,42 @@ package utils
 import (
 	"context"
 	"github.com/adobe/k8s-shredder/pkg/config"
+	"k8s.io/client-go/dynamic"
 
 	"k8s.io/client-go/kubernetes"
 )
 
 // AppContext struct stores a context and a k8s client
 type AppContext struct {
-	Context   context.Context
-	K8sClient kubernetes.Interface
-	Config    config.Config
-	dryRun    bool
+	Context          context.Context
+	K8sClient        kubernetes.Interface
+	DynamicK8SClient dynamic.Interface
+	Config           config.Config
+	dryRun           bool
 }
 
 // NewAppContext creates a new AppContext object
 func NewAppContext(cfg config.Config, dryRun bool) (*AppContext, error) {
-	clientSet, err := getClusterConfig()
+	client, err := getK8SClient()
 	if err != nil {
 		return nil, err
 	}
+
+	dynamicClient, err := getDynamicK8SClient()
+	if err != nil {
+		return nil, err
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go HandleOsSignals(cancel)
 
 	return &AppContext{
-		Context:   ctx,
-		K8sClient: clientSet,
-		Config:    cfg,
-		dryRun:    dryRun,
+		Context:          ctx,
+		K8sClient:        client,
+		DynamicK8SClient: dynamicClient,
+		Config:           cfg,
+		dryRun:           dryRun,
 	}, nil
 }
 

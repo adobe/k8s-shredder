@@ -2,7 +2,7 @@
 
 NAME ?= adobe/k8s-shredder
 K8S_SHREDDER_VERSION ?= "dev"
-KINDNODE_VERSION ?= "v1.28.0"
+KINDNODE_VERSION ?= "v1.30.4"
 COMMIT ?= $(shell git rev-parse --short HEAD)
 TEST_CLUSTERNAME ?= "k8s-shredder-test-cluster"
 

@@ -13,7 +13,7 @@
 
 As more and more teams running their workloads on Kubernetes started deploying stateful applications(kafka, zookeeper, 
 rabbitmq, redis, etc) on top of a Kubernetes platform, there might be challenges on finding solutions for keeping alive the minion 
-nodes(k8s worker nodes) where those pods part of a statefulset/deployment are running. 
+nodes(k8s worker nodes) where those pods part of a StatefulSet/Deployment/Argo Rollout are running. 
 There might be cases where worker nodes need to be running for an extended period of time during a full cluster upgrade in order to 
 ensure no downtime at application level while rotating the worker nodes.
 
@@ -42,17 +42,18 @@ Additionally, if you want a pod to be exempted from the eviction loop until park
 
 The following options can be used to customise the k8s-shredder controller:
 
-|                Name                |                   Default Value                   |                                                            Description                                                            |
-|:----------------------------------:|:-------------------------------------------------:|:---------------------------------------------------------------------------------------------------------------------------------:|
-|        EvictionLoopInterval        |                        60s                        |                                            How often to run the eviction loop process                                             |
-|           ParkedNodeTTL            |                        60m                        |                                 Time a node can be parked before starting force eviction process                                  |
-|      RollingRestartThreshold       |                        0.5                        |               How much time(percentage) should pass from ParkedNodeTTL before starting the rollout restart process                |
-|         UpgradeStatusLabel         |     "shredder.ethos.adobe.net/upgrade-status"     |                                            Label used for the identifying parked nodes                                            |
-|           ExpiresOnLabel           | "shredder.ethos.adobe.net/parked-node-expires-on" |                                        Label used for identifying the TTL for parked nodes                                        |
-| NamespacePrefixSkipInitialEviction |                        ""                         | For pods in namespaces having this prefix proceed directly with a rollout restart without waiting for the RollingRestartThreshold |
-|       RestartedAtAnnotation        |      "shredder.ethos.adobe.net/restartedAt"       |                               Annotation name used to mark a controller object for rollout restart                                |
-|         AllowEvictionLabel         |     "shredder.ethos.adobe.net/allow-eviction"     |                        Label used for skipping evicting pods that have explicitly set this label on false                         |
-|          ToBeDeletedTaint          |         "ToBeDeletedByClusterAutoscaler"          |               Node taint used for skipping a subset of parked nodes that are already handled by cluster-autoscaler                |
+|                  Name                   |                   Default Value                   |                                                            Description                                                            |
+|:---------------------------------------:|:-------------------------------------------------:|:---------------------------------------------------------------------------------------------------------------------------------:|
+|          EvictionLoopInterval           |                        60s                        |                                            How often to run the eviction loop process                                             |
+|              ParkedNodeTTL              |                        60m                        |                                 Time a node can be parked before starting force eviction process                                  |
+|         RollingRestartThreshold         |                        0.5                        |               How much time(percentage) should pass from ParkedNodeTTL before starting the rollout restart process                |
+|           UpgradeStatusLabel            |     "shredder.ethos.adobe.net/upgrade-status"     |                                            Label used for the identifying parked nodes                                            |
+|             ExpiresOnLabel              | "shredder.ethos.adobe.net/parked-node-expires-on" |                                        Label used for identifying the TTL for parked nodes                                        |
+|   NamespacePrefixSkipInitialEviction    |                        ""                         | For pods in namespaces having this prefix proceed directly with a rollout restart without waiting for the RollingRestartThreshold |
+|          RestartedAtAnnotation          |      "shredder.ethos.adobe.net/restartedAt"       |                               Annotation name used to mark a controller object for rollout restart                                |
+|           AllowEvictionLabel            |     "shredder.ethos.adobe.net/allow-eviction"     |                        Label used for skipping evicting pods that have explicitly set this label on false                         |
+|            ToBeDeletedTaint             |         "ToBeDeletedByClusterAutoscaler"          |               Node taint used for skipping a subset of parked nodes that are already handled by cluster-autoscaler                |
+|         ArgoRolloutsAPIVersion          |                    "v1alpha1"                     |                     API version from `argoproj.io` API group to be used while handling Argo Rollouts objects                      |
 
 
 ### How it works

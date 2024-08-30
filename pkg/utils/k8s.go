@@ -14,24 +14,40 @@ package utils
 import (
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"strconv"
 	"time"
 )
 
-func getClusterConfig() (*kubernetes.Clientset, error) {
+func getK8SClient() (*kubernetes.Clientset, error) {
 	cfg, err := config.GetConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	clientSet, err := kubernetes.NewForConfig(cfg)
+	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	return clientSet, nil
+	return client, nil
+}
+
+func getDynamicK8SClient() (*dynamic.DynamicClient, error) {
+	cfg, err := config.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a dynamic client
+	dynamicClient, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		return nil, errors.Errorf("Error creating dynamic client: %v", err)
+	}
+
+	return dynamicClient, nil
 }
 
 // NodeHasTaint check if a node has a taint set

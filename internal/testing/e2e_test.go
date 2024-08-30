@@ -23,6 +23,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"strings"
 	"testing"
@@ -46,6 +48,56 @@ var (
 		"shredder_pod_force_to_evict_time",
 	}
 )
+
+func grabMetrics(shredderMetrics []string, t *testing.T) []string {
+	results := make([]string, 0)
+	warnings := make([]string, 0)
+
+	for _, shredderMetric := range shredderMetrics {
+		result, warning, err := prometheusQuery(shredderMetric)
+		if err != nil {
+			t.Errorf("Error querying Prometheus: %v\n", err)
+		}
+		warnings = append(warnings, warning...)
+		results = append(results, result.String())
+	}
+
+	if len(warnings) > 0 {
+		t.Logf("Warnings: %v\n", strings.Join(warnings, "\n"))
+	}
+
+	t.Logf("Results: \n%v\n", strings.Join(results, "\n"))
+
+	return results
+}
+
+func prometheusQuery(query string) (model.Value, v1.Warnings, error) {
+
+	client, err := api.NewClient(api.Config{
+		Address: "http://localhost:30007",
+	})
+	if err != nil {
+		fmt.Printf("Error creating client: %v\n", err)
+		os.Exit(1)
+	}
+
+	v1api := v1.NewAPI(client)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return v1api.Query(ctx, query, time.Now(), v1.WithTimeout(5*time.Second))
+}
+
+func compareTime(expirationTime time.Time, t *testing.T, ch chan time.Time) {
+	currentTime := time.Now().UTC()
+
+	for !currentTime.After(expirationTime.UTC()) {
+		t.Logf("Node TTL haven't expired yet: current time(UTC): %s, expire time(UTC): %s", currentTime, expirationTime.UTC())
+		time.Sleep(10 * time.Second)
+		currentTime = time.Now().UTC()
+
+	}
+	ch <- currentTime
+}
 
 // Validates that k8s-shredder cleanup a parked node after its TTL expires
 func TestNodeIsCleanedUp(t *testing.T) {
@@ -110,18 +162,7 @@ func TestNodeIsCleanedUp(t *testing.T) {
 	}
 }
 
-func compareTime(expirationTime time.Time, t *testing.T, ch chan time.Time) {
-	currentTime := time.Now().UTC()
-
-	for !currentTime.After(expirationTime.UTC()) {
-		t.Logf("Node TTL haven't expired yet: current time(UTC): %s, expire time(UTC): %s", currentTime, expirationTime.UTC())
-		time.Sleep(10 * time.Second)
-		currentTime = time.Now().UTC()
-
-	}
-	ch <- currentTime
-}
-
+// Validates shredder metrics
 func TestShredderMetrics(t *testing.T) {
 
 	// Intentionally skipped the gauge metrics as they are going to be wiped out before every eviction loop
@@ -140,40 +181,43 @@ func TestShredderMetrics(t *testing.T) {
 	}
 }
 
-func grabMetrics(shredderMetrics []string, t *testing.T) []string {
-	results := make([]string, 0)
-	warnings := make([]string, 0)
+func TestArgoRolloutRestartAt(t *testing.T) {
+	var err error
 
-	for _, shredderMetric := range shredderMetrics {
-		result, warning, err := prometheusQuery(shredderMetric)
-		if err != nil {
-			t.Errorf("Error querying Prometheus: %v\n", err)
-		}
-		warnings = append(warnings, warning...)
-		results = append(results, result.String())
-	}
+	appContext, err := utils.NewAppContext(config.Config{
+		ParkedNodeTTL:                      30 * time.Second,
+		EvictionLoopInterval:               10 * time.Second,
+		RollingRestartThreshold:            0.1,
+		UpgradeStatusLabel:                 "shredder.ethos.adobe.net/upgrade-status",
+		ExpiresOnLabel:                     "shredder.ethos.adobe.net/parked-node-expires-on",
+		NamespacePrefixSkipInitialEviction: "",
+		RestartedAtAnnotation:              "shredder.ethos.adobe.net/restartedAt",
+		AllowEvictionLabel:                 "shredder.ethos.adobe.net/allow-eviction",
+		ToBeDeletedTaint:                   "ToBeDeletedByClusterAutoscaler",
+		ArgoRolloutsAPIVersion:             "v1alpha1",
+	}, false)
 
-	if len(warnings) > 0 {
-		t.Logf("Warnings: %v\n", strings.Join(warnings, "\n"))
-	}
-
-	t.Logf("Results: \n%v\n", strings.Join(results, "\n"))
-
-	return results
-}
-
-func prometheusQuery(query string) (model.Value, v1.Warnings, error) {
-
-	client, err := api.NewClient(api.Config{
-		Address: "http://localhost:30007",
-	})
 	if err != nil {
-		fmt.Printf("Error creating client: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Failed to setup application context: %s", err)
 	}
 
-	v1api := v1.NewAPI(client)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	return v1api.Query(ctx, query, time.Now(), v1.WithTimeout(5*time.Second))
+	gvr := schema.GroupVersionResource{
+		Group:    "argoproj.io",
+		Version:  appContext.Config.ArgoRolloutsAPIVersion,
+		Resource: "rollouts",
+	}
+
+	rollout, err := appContext.DynamicK8SClient.Resource(gvr).Namespace("ns-team-k8s-shredder-test").Get(appContext.Context, "test-app-argo-rollout", metav1.GetOptions{})
+	if err != nil {
+		log.Fatalf("Failed to get the Argo Rollout object: %s", err)
+	}
+	_, found, err := unstructured.NestedString(rollout.Object, "spec", "restartAt")
+
+	if err != nil {
+		log.Fatalf("Failed to get the Argo Rollout spec.restartAt field: %s", err)
+	}
+
+	if !found {
+		t.Fatalf("Argo Rollout object does not have the spec.restartAt field set")
+	}
 }

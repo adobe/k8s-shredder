@@ -41,8 +41,16 @@ kubectl apply -f "${test_dir}/k8s-shredder.yaml"
 echo "KIND: deploying prometheus..."
 kubectl apply -f "${test_dir}/prometheus_stuffs.yaml"
 
+echo "KIND: deploying Argo Rollouts CRD..."
+kubectl apply -f https://raw.githubusercontent.com/argoproj/argo-rollouts/v1.7.2/manifests/crds/rollout-crd.yaml
+
 echo "KIND: deploying test applications..."
 kubectl apply -f "${test_dir}/test_apps.yaml"
+
+# Adjust the correct UID for the test-app-argo-rollout ownerReference
+rollout_uid=$(kubectl -n ns-team-k8s-shredder-test get rollout test-app-argo-rollout -ojsonpath='{.metadata.uid}')
+cat "${test_dir}/test_apps.yaml" | sed "s/REPLACE_WITH_ROLLOUT_UID/${rollout_uid}/" | kubectl apply -f -
+
 
 echo "K8S_SHREDDER: waiting for k8s-shredder deployment to become ready!"
 retry_count=0

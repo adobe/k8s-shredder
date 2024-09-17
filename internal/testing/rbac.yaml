@@ -34,4 +34,32 @@ rules:
   - apiGroups: [ "argoproj.io" ]
     resources: [ rollouts ]
     verbs: [ get, list, watch, update, patch ]
-
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: edit-debug-flags-v
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes/proxy
+  verbs:
+  - update
+- nonResourceURLs:
+  - /debug/flags/v
+  verbs:
+  - put
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: edit-debug-flags-v
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: edit-debug-flags-v
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: default

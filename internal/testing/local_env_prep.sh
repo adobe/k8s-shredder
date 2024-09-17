@@ -35,6 +35,15 @@ fi
 echo "KIND: setting up k8s-shredder rbac..."
 kubectl apply -f "${test_dir}/rbac.yaml"
 
+if  [[ ${ENABLE_APISERVER_DEBUG} == "true" ]]
+then
+  echo -e "K8S_SHREDDER: Enable debug logging on apiserver"
+  TOKEN=$(kubectl create token default)
+
+  APISERVER=$(kubectl config view -o jsonpath="{.clusters[?(@.name==\"kind-${K8S_CLUSTER_NAME}\")].cluster.server}")
+curl -s -X PUT -d '5' "$APISERVER"/debug/flags/v --header "Authorization: Bearer $TOKEN" -k
+fi
+
 echo "KIND: deploying k8s-shredder..."
 kubectl apply -f "${test_dir}/k8s-shredder.yaml"
 
@@ -48,8 +57,8 @@ echo "KIND: deploying test applications..."
 kubectl apply -f "${test_dir}/test_apps.yaml"
 
 # Adjust the correct UID for the test-app-argo-rollout ownerReference
-rollout_uid=$(kubectl -n ns-team-k8s-shredder-test get rollout test-app-argo-rollout -ojsonpath='{.metadata.uid}')
-cat "${test_dir}/test_apps.yaml" | sed "s/REPLACE_WITH_ROLLOUT_UID/${rollout_uid}/" | kubectl apply -f -
+rollout_uid=$(kubectl -n ns-team-k8s-shredder-test get rollout test-app-argo-rollout -o jsonpath='{.metadata.uid}')
+sed "s/REPLACE_WITH_ROLLOUT_UID/${rollout_uid}/" < "${test_dir}/test_apps.yaml"  | kubectl apply -f -
 
 
 echo "K8S_SHREDDER: waiting for k8s-shredder deployment to become ready!"
@@ -63,6 +72,18 @@ while [[  ${status} == *"False"* || -z ${status} ]]; do
   printf "\b${sp:i++%${#sp}:1}" && sleep 0.5;
   status=$(kubectl get pods -n kube-system -l app=k8s-shredder -o json | \
         jq '.items[].status.conditions[] | select(.type=="Ready")| .status' 2> /dev/null)
+  retry_count=$((retry_count+1))
+done
+echo ""
+
+echo "K8S_SHREDDER: waiting for rollout object PDB to become ready!"
+retry_count=0
+while [[ $(kubectl get pdb -n ns-team-k8s-shredder-test test-app-argo-rollout \
+           -o jsonpath="{.status.currentHealthy}"  2> /dev/null) != "2" ]]; do
+  # set 5 minute timeout
+  if [[ ${retry_count} == 600 ]]; then echo "Timeout exceeded!" && exit 1; fi
+  # shellcheck disable=SC2059
+  printf "\b${sp:i++%${#sp}:1}" && sleep 0.5;
   retry_count=$((retry_count+1))
 done
 

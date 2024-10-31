@@ -3,7 +3,7 @@ module github.com/adobe/k8s-shredder
 go 1.23.0
 
 require (
-	github.com/fsnotify/fsnotify v1.7.0
+	github.com/fsnotify/fsnotify v1.8.0
 	github.com/go-co-op/gocron/v2 v2.12.1
 	github.com/google/uuid v1.6.0
 	github.com/pkg/errors v0.9.1

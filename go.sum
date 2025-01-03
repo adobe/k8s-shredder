@@ -47,6 +47,8 @@ github.com/go-co-op/gocron/v2 v2.13.0 h1:iGU/RoZvf4GF5hIZUkDSFvvajk9K3W4YgocarBo
 github.com/go-co-op/gocron/v2 v2.13.0/go.mod h1:ZF70ZwEqz0OO4RBXE1sNxnANy/zvwLcattWEFsqpKig=
 github.com/go-co-op/gocron/v2 v2.14.0 h1:bWPJeIdd4ioqiEpLLD1BVSTrtae7WABhX/WaVJbKVqg=
 github.com/go-co-op/gocron/v2 v2.14.0/go.mod h1:ZF70ZwEqz0OO4RBXE1sNxnANy/zvwLcattWEFsqpKig=
+github.com/go-co-op/gocron/v2 v2.14.1 h1:bwWMkX2rNfS6RqBmUAfkDuOPKl/BRCRCrmuAv8flrOQ=
+github.com/go-co-op/gocron/v2 v2.14.1/go.mod h1:ZF70ZwEqz0OO4RBXE1sNxnANy/zvwLcattWEFsqpKig=
 github.com/go-errors/errors v1.4.2 h1:J6MZopCL4uSllY1OfXM374weqZFFItUbrImctkmUxIA=
 github.com/go-errors/errors v1.4.2/go.mod h1:sIVyrIiJhuEF+Pj9Ebtd6P/rEYROXFi3BopGUQ5a5Og=
 github.com/go-logr/logr v1.4.2 h1:6pFjapn8bFcIbiKo3XT4j/BhANplGihG6tvd+8rYgrY=

@@ -14,12 +14,13 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
-	"golang.org/x/exp/slices"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/exp/slices"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/adobe/k8s-shredder/pkg/metrics"
 	"github.com/adobe/k8s-shredder/pkg/utils"
@@ -82,6 +83,30 @@ func (h *Handler) Run() error {
 	metrics.ShredderPodErrorsTotal.Reset()
 
 	h.logger.Infof("Starting eviction loop")
+
+	// First, scan for drifted Karpenter node claims and label their nodes (if enabled)
+	if h.appContext.Config.EnableKarpenterDriftDetection {
+		err := utils.ProcessDriftedKarpenterNodes(h.appContext.Context, h.appContext, h.logger)
+		if err != nil {
+			h.logger.WithError(err).Warn("Failed to process drifted Karpenter nodes, continuing with normal eviction loop")
+			metrics.ShredderErrorsTotal.Inc()
+			// We don't return here because we want to continue with the normal eviction loop even if Karpenter drift detection fails
+		}
+	} else {
+		h.logger.Debug("Karpenter drift detection is disabled")
+	}
+
+	// Second, scan for nodes with specific labels and park them (if enabled)
+	if h.appContext.Config.EnableNodeLabelDetection {
+		err := utils.ProcessNodesWithLabels(h.appContext.Context, h.appContext, h.logger)
+		if err != nil {
+			h.logger.WithError(err).Warn("Failed to process nodes with label detection, continuing with normal eviction loop")
+			metrics.ShredderErrorsTotal.Inc()
+			// We don't return here because we want to continue with the normal eviction loop even if node label detection fails
+		}
+	} else {
+		h.logger.Debug("Node label detection is disabled")
+	}
 
 	// sync all nodes goroutines
 	wg := sync.WaitGroup{}

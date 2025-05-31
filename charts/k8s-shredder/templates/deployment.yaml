@@ -47,6 +47,8 @@ spec:
           args:
           - "--config=/k8s-shredder-config/config.yaml"
           - "--metrics-port=8080"
+          - "--log-level={{ .Values.logLevel }}"
+          - "--log-format={{ .Values.logFormat }}"
           {{- if .Values.dryRun }}
           - "--dry-run"
           {{- end }}

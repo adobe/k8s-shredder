@@ -2,11 +2,12 @@
 set -e
 
 K8S_CLUSTER_NAME=$1
+KUBECONFIG_FILE=${2:-kubeconfig}
 
 echo "K8S_SHREDDER: Simulating cluster upgrade..."
 echo "K8S_SHREDDER: Cordoning and labelling k8s-shredder-worker as parked with a TTL of 1 minute!"
-kubectl cordon "${K8S_CLUSTER_NAME}-worker" --kubeconfig=kubeconfig
-kubectl label node "${K8S_CLUSTER_NAME}-worker" --kubeconfig=kubeconfig shredder.ethos.adobe.net/upgrade-status=parked --overwrite=true
+kubectl cordon "${K8S_CLUSTER_NAME}-worker" --kubeconfig=${KUBECONFIG_FILE}
+kubectl label node "${K8S_CLUSTER_NAME}-worker" --kubeconfig=${KUBECONFIG_FILE} shredder.ethos.adobe.net/upgrade-status=parked --overwrite=true
 
 # date is not a bash builtin. It is a system utility and that is something on which OSX and Linux differ.
 # OSX uses BSD tools while Linux uses GNU tools. They are similar but not the same.
@@ -17,7 +18,7 @@ else
   EXPIRES_ON=$(date -v '+1M' -u +'%s'.000)
 fi
 
-kubectl label node "${K8S_CLUSTER_NAME}-worker" --kubeconfig=kubeconfig --overwrite shredder.ethos.adobe.net/parked-node-expires-on="${EXPIRES_ON}"
+kubectl label node "${K8S_CLUSTER_NAME}-worker" --kubeconfig=${KUBECONFIG_FILE} --overwrite shredder.ethos.adobe.net/parked-node-expires-on="${EXPIRES_ON}"
 
 if [[ ${WAIT_FOR_PODS:-false} == "true" ]]
 then
@@ -29,6 +30,6 @@ then
   done
 
   # This is to simulate the upgrade process. We are going to wait for 1 minute and then uncordon the node.
-  kubectl label node "${K8S_CLUSTER_NAME}-worker" --kubeconfig=kubeconfig shredder.ethos.adobe.net/upgrade-status-
-  kubectl label node "${K8S_CLUSTER_NAME}-worker" --kubeconfig=kubeconfig --overwrite shredder.ethos.adobe.net/parked-node-expires-on-
+  kubectl label node "${K8S_CLUSTER_NAME}-worker" --kubeconfig=${KUBECONFIG_FILE} shredder.ethos.adobe.net/upgrade-status-
+  kubectl label node "${K8S_CLUSTER_NAME}-worker" --kubeconfig=${KUBECONFIG_FILE} --overwrite shredder.ethos.adobe.net/parked-node-expires-on-
 fi

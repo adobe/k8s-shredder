@@ -1,3 +1,5 @@
+## Creating a new release of `k8s-shredder`
+
 All k8s-shredder binaries, container image and helm chart are released using github actions workflows.
 See [release workflow](.github/workflows/release.yaml) and [release chart workflow](.github/workflows/release-chart.yaml) for more details.
 
@@ -8,7 +10,6 @@ export NEW_VERSION=vX.Y.Z
 git tag -a ${NEW_VERSION} -m "Release ${NEW_VERSION}"
 git push origin ${NEW_VERSION}
 ```
-
 
 ## Manually Releasing new `k8s-shredder` version
 
@@ -37,4 +38,4 @@ make publish
 ```
 
 You can check if the new release and associated artifacts were properly pushed into GitHub by accessing
-[k8s-shredder releases](https://github.com/adobe/cluster-registry/releases)
+[k8s-shredder releases](https://github.com/adobe/k8s-shredder/releases)

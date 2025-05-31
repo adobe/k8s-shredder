@@ -1,10 +1,15 @@
-.PHONY: default help format lint vet security build build-prereq push unit-test local-test ci clean e2e-tests check-license
+.PHONY: default help format lint vet security build build-prereq push unit-test local-test local-test-karpenter local-test-node-labels ci clean e2e-tests check-license
 
 NAME ?= adobe/k8s-shredder
 K8S_SHREDDER_VERSION ?= "dev"
-KINDNODE_VERSION ?= "v1.30.4"
+KINDNODE_VERSION ?= "v1.31.9"
 COMMIT ?= $(shell git rev-parse --short HEAD)
 TEST_CLUSTERNAME ?= "k8s-shredder-test-cluster"
+TEST_CLUSTERNAME_KARPENTER ?= "k8s-shredder-test-cluster-karpenter"
+TEST_CLUSTERNAME_NODE_LABELS ?= "k8s-shredder-test-cluster-node-labels"
+KUBECONFIG_LOCALTEST ?= "kubeconfig-localtest"
+KUBECONFIG_KARPENTER ?= "kubeconfig-local-test-karpenter"
+KUBECONFIG_NODE_LABELS ?= "kubeconfig-local-test-node-labels"
 
 GOSEC=gosec -quiet -exclude=G107
 
@@ -59,11 +64,31 @@ build: check-license lint vet security unit-test ## Builds the local Docker cont
 
 # TEST
 # -----------
-local-test: build ## Test docker image in a kind cluster
+local-test: build ## Test docker image in a kind cluster (with Karpenter drift and node label detection disabled)
 	@hash kind 2>/dev/null && { \
 		echo "Test docker image in a kind cluster..."; \
-		./internal/testing/local_env_prep.sh "${K8S_SHREDDER_VERSION}" "${KINDNODE_VERSION}" "${TEST_CLUSTERNAME}" && \
-		./internal/testing/cluster_upgrade.sh "${TEST_CLUSTERNAME}" || \
+		./internal/testing/local_env_prep.sh "${K8S_SHREDDER_VERSION}" "${KINDNODE_VERSION}" "${TEST_CLUSTERNAME}" "${KUBECONFIG_LOCALTEST}" && \
+		./internal/testing/cluster_upgrade.sh "${TEST_CLUSTERNAME}" "${KUBECONFIG_LOCALTEST}" || \
+		exit 1; \
+	} || { \
+		echo >&2 "[WARN] I require kind but it's not installed(see https://kind.sigs.k8s.io). Assuming a cluster is already accessible."; \
+	}
+
+local-test-karpenter: build ## Test docker image in a kind cluster with Karpenter and drift detection enabled
+	@hash kind 2>/dev/null && { \
+		echo "Test docker image in a kind cluster with Karpenter..."; \
+		./internal/testing/local_env_prep_karpenter.sh "${K8S_SHREDDER_VERSION}" "${KINDNODE_VERSION}" "${TEST_CLUSTERNAME_KARPENTER}" "${KUBECONFIG_KARPENTER}" && \
+		./internal/testing/cluster_upgrade_karpenter.sh "${TEST_CLUSTERNAME_KARPENTER}" "${KUBECONFIG_KARPENTER}" || \
+		exit 1; \
+	} || { \
+		echo >&2 "[WARN] I require kind but it's not installed(see https://kind.sigs.k8s.io). Assuming a cluster is already accessible."; \
+	}
+
+local-test-node-labels: build ## Test docker image in a kind cluster with node label detection enabled
+	@hash kind 2>/dev/null && { \
+		echo "Test docker image in a kind cluster with node label detection..."; \
+		./internal/testing/local_env_prep_node_labels.sh "${K8S_SHREDDER_VERSION}" "${KINDNODE_VERSION}" "${TEST_CLUSTERNAME_NODE_LABELS}" "${KUBECONFIG_NODE_LABELS}" && \
+		./internal/testing/cluster_upgrade_node_labels.sh "${TEST_CLUSTERNAME_NODE_LABELS}" "${KUBECONFIG_NODE_LABELS}" || \
 		exit 1; \
 	} || { \
 		echo >&2 "[WARN] I require kind but it's not installed(see https://kind.sigs.k8s.io). Assuming a cluster is already accessible."; \
@@ -76,7 +101,7 @@ unit-test: ## Run unit tests
 
 e2e-tests:  ## Run e2e tests for k8s-shredder deployed in a local kind cluster
 	@echo "Run e2e tests for k8s-shredder..."
-	@KUBECONFIG=${PWD}/kubeconfig go test internal/testing/e2e_test.go -v
+	@KUBECONFIG=${PWD}/${KUBECONFIG_LOCALTEST} go test internal/testing/e2e_test.go -v
 
 # DEMO targets
 # -----------
@@ -103,8 +128,10 @@ publish: ## Release a new version
 # -----------
 clean: ## Clean up local testing environment
 	@echo "Cleaning up your local testing environment..."
-	@kind delete cluster --name="${TEST_CLUSTERNAME}" > /dev/null 2>&1 || true
+	@kind delete cluster --name="${TEST_CLUSTERNAME}" ## > /dev/null 2>&1 || true
+	@kind delete cluster --name="${TEST_CLUSTERNAME_KARPENTER}" ## > /dev/null 2>&1 || true
+	@kind delete cluster --name="${TEST_CLUSTERNAME_NODE_LABELS}" ## > /dev/null 2>&1 || true
 	@echo "Removing all generated files and directories"
-	@rm -rf dist/ k8s-shredder kubeconfig
+	@rm -rf dist/ k8s-shredder kubeconfig ${KUBECONFIG_LOCALTEST} ${KUBECONFIG_KARPENTER} ${KUBECONFIG_NODE_LABELS}
 	@echo "Done!"
 

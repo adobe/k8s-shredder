@@ -35,4 +35,16 @@ type Config struct {
 	ToBeDeletedTaint string
 	// ArgoRolloutsAPIVersion is used for specifying the API version from `argoproj.io` apigroup to be used while handling Argo Rollouts objects
 	ArgoRolloutsAPIVersion string
+	// EnableKarpenterDriftDetection controls whether to scan for drifted Karpenter NodeClaims and automatically label their nodes
+	EnableKarpenterDriftDetection bool
+	// ParkedByLabel is used for identifying which component parked the node
+	ParkedByLabel string
+	// ParkedByValue is the value to set for the ParkedByLabel
+	ParkedByValue string
+	// ParkedNodeTaint is the taint to apply to parked nodes in the format key=value:effect
+	ParkedNodeTaint string
+	// EnableNodeLabelDetection controls whether to scan for nodes with specific labels and automatically park them
+	EnableNodeLabelDetection bool
+	// NodeLabelsToDetect is a list of node labels to look for. Can be just keys or key=value pairs
+	NodeLabelsToDetect []string
 }

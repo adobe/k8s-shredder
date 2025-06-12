@@ -3,9 +3,10 @@
 .DS_Store?
 
 # build artifacts
-kubeconfig
+kubeconfig*
 dist
 k8s-shredder
+my-k8s-shredder-values.yaml
 
 # Test binary, build with `go test -c`
 *.test

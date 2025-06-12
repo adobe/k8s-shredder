@@ -14,6 +14,11 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/adobe/k8s-shredder/pkg/config"
 	"github.com/adobe/k8s-shredder/pkg/handler"
 	"github.com/adobe/k8s-shredder/pkg/utils"
@@ -25,10 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"os"
-	"strings"
-	"testing"
-	"time"
 )
 
 var (
@@ -113,6 +114,8 @@ func TestNodeIsCleanedUp(t *testing.T) {
 		RestartedAtAnnotation:              "shredder.ethos.adobe.net/restartedAt",
 		AllowEvictionLabel:                 "shredder.ethos.adobe.net/allow-eviction",
 		ToBeDeletedTaint:                   "ToBeDeletedByClusterAutoscaler",
+		ParkedByLabel:                      "shredder.ethos.adobe.net/parked-by",
+		ParkedByValue:                      "k8s-shredder",
 	}, false)
 
 	if err != nil {
@@ -195,6 +198,8 @@ func TestArgoRolloutRestartAt(t *testing.T) {
 		AllowEvictionLabel:                 "shredder.ethos.adobe.net/allow-eviction",
 		ToBeDeletedTaint:                   "ToBeDeletedByClusterAutoscaler",
 		ArgoRolloutsAPIVersion:             "v1alpha1",
+		ParkedByLabel:                      "shredder.ethos.adobe.net/parked-by",
+		ParkedByValue:                      "k8s-shredder",
 	}, false)
 
 	if err != nil {

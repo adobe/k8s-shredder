@@ -12,9 +12,10 @@ governing permissions and limitations under the License.
 package cmd
 
 import (
-	"github.com/google/uuid"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/adobe/k8s-shredder/pkg/config"
 	"github.com/adobe/k8s-shredder/pkg/handler"
@@ -37,8 +38,8 @@ var (
 
 	rootCmd = &cobra.Command{
 		Use:              "k8s-shredder",
-		Short:            "A new way of parking in Kubernetes",
-		Long:             `A new way of parking in Kubernetes`,
+		Short:            "a novel way of dealing with kubernetes nodes blocked from draining",
+		Long:             `a novel way of dealing with kubernetes nodes blocked from draining`,
 		PersistentPreRun: preRun,
 		Run:              run,
 	}
@@ -115,6 +116,12 @@ func discoverConfig() {
 	viper.SetDefault("AllowEvictionLabel", "shredder.ethos.adobe.net/allow-eviction")
 	viper.SetDefault("ToBeDeletedTaint", "ToBeDeletedByClusterAutoscaler")
 	viper.SetDefault("ArgoRolloutsAPIVersion", "v1alpha1")
+	viper.SetDefault("EnableKarpenterDriftDetection", false)
+	viper.SetDefault("ParkedByLabel", "shredder.ethos.adobe.net/parked-by")
+	viper.SetDefault("ParkedByValue", "k8s-shredder")
+	viper.SetDefault("ParkedNodeTaint", "shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule")
+	viper.SetDefault("EnableNodeLabelDetection", false)
+	viper.SetDefault("NodeLabelsToDetect", []string{})
 
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -146,6 +153,12 @@ func parseConfig() {
 		"AllowEvictionLabel":                 cfg.AllowEvictionLabel,
 		"ToBeDeletedTaint":                   cfg.ToBeDeletedTaint,
 		"ArgoRolloutsAPIVersion":             cfg.ArgoRolloutsAPIVersion,
+		"EnableKarpenterDriftDetection":      cfg.EnableKarpenterDriftDetection,
+		"ParkedByLabel":                      cfg.ParkedByLabel,
+		"ParkedByValue":                      cfg.ParkedByValue,
+		"ParkedNodeTaint":                    cfg.ParkedNodeTaint,
+		"EnableNodeLabelDetection":           cfg.EnableNodeLabelDetection,
+		"NodeLabelsToDetect":                 cfg.NodeLabelsToDetect,
 	}).Info("Loaded configuration")
 }
 

@@ -1,0 +1,106 @@
+---
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: default-nodepool
+spec:
+  template:
+    spec:
+      requirements:
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot", "on-demand"]
+        - key: node.kubernetes.io/instance-type
+          operator: In
+          values: ["m5.large", "m5.xlarge"]
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: default-nodeclass
+      taints:
+        - key: "example.com/special-taint"
+          value: "special-value"
+          effect: "NoSchedule"
+  limits:
+    cpu: 1000
+  disruption:
+    consolidationPolicy: WhenEmpty
+    consolidateAfter: 30s
+---
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: test-nodepool
+spec:
+  template:
+    spec:
+      requirements:
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot"]
+        - key: node.kubernetes.io/instance-type
+          operator: In
+          values: ["m5.large"]
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: test-nodeclass
+      taints:
+        - key: "example.com/test-taint"
+          value: "test-value"
+          effect: "NoSchedule"
+  limits:
+    cpu: 500
+  disruption:
+    consolidationPolicy: WhenEmpty
+    consolidateAfter: 30s
+---
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: default-nodeclass
+spec:
+  role: "KarpenterNodeRole-k8s-shredder-test-cluster"
+  amiFamily: AL2
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "k8s-shredder-test-cluster"
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "k8s-shredder-test-cluster"
+  instanceStorePolicy: RAID0
+  userData: |
+    #!/bin/bash
+    /etc/eks/bootstrap.sh k8s-shredder-test-cluster
+    echo "NodeClass: default-nodeclass" >> /etc/kubernetes/kubelet/kubelet-config.json
+---
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: test-nodeclass
+spec:
+  role: "KarpenterNodeRole-k8s-shredder-test-cluster"
+  amiFamily: AL2
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "k8s-shredder-test-cluster"
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "k8s-shredder-test-cluster"
+  instanceStorePolicy: RAID0
+  userData: |
+    #!/bin/bash
+    /etc/eks/bootstrap.sh k8s-shredder-test-cluster
+    echo "NodeClass: test-nodeclass" >> /etc/kubernetes/kubelet/kubelet-config.json 

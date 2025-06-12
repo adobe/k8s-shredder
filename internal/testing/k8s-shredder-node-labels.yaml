@@ -65,8 +65,8 @@ metadata:
   namespace: kube-system
 data:
   config.yaml: |-
-    EvictionLoopInterval: 10s
-    ParkedNodeTTL: 30s
+    EvictionLoopInterval: 30s
+    ParkedNodeTTL: 2m
     RollingRestartThreshold: 0.5
     UpgradeStatusLabel: "shredder.ethos.adobe.net/upgrade-status"
     ExpiresOnLabel: "shredder.ethos.adobe.net/parked-node-expires-on"
@@ -79,8 +79,11 @@ data:
     ParkedByLabel: "shredder.ethos.adobe.net/parked-by"
     ParkedByValue: "k8s-shredder"
     ParkedNodeTaint: "shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule"
-    EnableNodeLabelDetection: false
-    NodeLabelsToDetect: []
+    EnableNodeLabelDetection: true
+    NodeLabelsToDetect:
+      - "test-label"
+      - "maintenance=scheduled"
+      - "node.test.io/park"
 ---
 apiVersion: v1
 kind: Service
@@ -92,4 +95,4 @@ spec:
     app: k8s-shredder
   ports:
     - port: 8080
-      targetPort: 8080
+      targetPort: 8080 

@@ -37,7 +37,7 @@ spec:
           args:
             - "--config=/k8s-shredder-config/config.yaml"
             - "--metrics-port=8080"
-            - "--log-level=info"
+            - "--log-level=debug"
             # For running it in dry run, without taking any real eviction actions
             # - "--dry-run"
           ports:
@@ -65,8 +65,8 @@ metadata:
   namespace: kube-system
 data:
   config.yaml: |-
-    EvictionLoopInterval: 10s
-    ParkedNodeTTL: 30s
+    EvictionLoopInterval: 30s
+    ParkedNodeTTL: 2m
     RollingRestartThreshold: 0.5
     UpgradeStatusLabel: "shredder.ethos.adobe.net/upgrade-status"
     ExpiresOnLabel: "shredder.ethos.adobe.net/parked-node-expires-on"
@@ -75,7 +75,7 @@ data:
     AllowEvictionLabel: "shredder.ethos.adobe.net/allow-eviction"
     ToBeDeletedTaint: "ToBeDeletedByClusterAutoscaler"
     ArgoRolloutsAPIVersion: "v1alpha1"
-    EnableKarpenterDriftDetection: false
+    EnableKarpenterDriftDetection: true
     ParkedByLabel: "shredder.ethos.adobe.net/parked-by"
     ParkedByValue: "k8s-shredder"
     ParkedNodeTaint: "shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule"
@@ -92,4 +92,4 @@ spec:
     app: k8s-shredder
   ports:
     - port: 8080
-      targetPort: 8080
+      targetPort: 8080 

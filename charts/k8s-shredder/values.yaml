@@ -1,117 +1,62 @@
-# -- Container image configuration
 image:
-  # -- Container registry where the k8s-shredder image is hosted
   registry: ghcr.io/adobe/k8s-shredder
-  # -- Image pull policy - IfNotPresent, Always, or Never
   pullPolicy: IfNotPresent
 
-# -- Number of k8s-shredder pods to run
 replicaCount: 1
-# -- Deployment strategy for rolling updates (e.g., RollingUpdate, Recreate)
 deploymentStrategy: {}
 
-# -- Secrets for pulling images from private registries
 imagePullSecrets: []
-# -- Override the name of the chart
 nameOverride: ""
-# -- Override the full name used for resources
 fullnameOverride: ""
 
-# -- Additional environment variables to set in the container
 environmentVars: []
 
-# -- Enable dry-run mode - when true, k8s-shredder will log actions but not execute them
 dryRun: false
 
-# -- Logging configuration
-# -- Available log levels: panic, fatal, error, warn, warning, info, debug, trace
-logLevel: "debug"
-# -- Log output format: text (human-readable) or json (structured logging)
-logFormat: "text"
-
-# -- Core k8s-shredder configuration
 shredder:
-  # -- How often to run the main eviction loop
   EvictionLoopInterval: "1h"
-  # -- How long parked nodes should remain before being eligible for deletion (7 days default)
-  ParkedNodeTTL: "168h"
-  # -- Maximum percentage of nodes that can be restarted simultaneously during rolling restarts
+  ParkedNodeTTL: "168h"  # 7 days
   RollingRestartThreshold: 0.1
-  # -- Label used to track node upgrade status
   UpgradeStatusLabel: "shredder.ethos.adobe.net/upgrade-status"
-  # -- Label used to track when a parked node expires
   ExpiresOnLabel: "shredder.ethos.adobe.net/parked-node-expires-on"
-  # -- Namespace prefix to skip during initial eviction (useful for system namespaces)
   NamespacePrefixSkipInitialEviction: "ns-ethos-"
-  # -- Annotation to track when a workload was last restarted
   RestartedAtAnnotation: "shredder.ethos.adobe.net/restartedAt"
-  # -- Label to explicitly allow eviction on specific resources
   AllowEvictionLabel: "shredder.ethos.adobe.net/allow-eviction"
-  # -- Taint indicating nodes scheduled for deletion by cluster autoscaler
   ToBeDeletedTaint: "ToBeDeletedByClusterAutoscaler"
-  # -- API version for Argo Rollouts integration
-  ArgoRolloutsAPIVersion: "v1alpha1"
-  # -- Enable Karpenter drift detection for node lifecycle management
-  EnableKarpenterDriftDetection: false
-  # -- Label to track which component parked a node
-  ParkedByLabel: "shredder.ethos.adobe.net/parked-by"
-  # -- Value set in the ParkedByLabel to identify k8s-shredder as the parking agent
-  ParkedByValue: "k8s-shredder"
-  # -- Taint applied to parked nodes to prevent new pod scheduling
-  ParkedNodeTaint: "shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule"
-  # -- Enable detection of nodes based on specific labels
-  EnableNodeLabelDetection: false
-  # -- List of node labels to monitor for triggering shredder actions
-  NodeLabelsToDetect: []
 
-# -- RBAC (Role-Based Access Control) configuration
 rbac:
-  # -- Create RBAC resources (ClusterRole, ClusterRoleBinding)
   create: true
 
-# -- Kubernetes service account configuration
 serviceAccount:
-  # -- Create a service account for k8s-shredder
   create: true
-  # -- Name of the service account
   name: k8s-shredder
-  # -- Additional annotations for the service account (useful for IAM roles, etc.)
   annotations: {}
 
-# -- Annotations to add to k8s-shredder pod(s)
+# Annotations for k8s-shredder pod(s).
 podAnnotations: {}
 
-# -- Additional labels to add to k8s-shredder pod(s)
+# Additional labels for the k8s-shredder pod(s).
 podLabels: {}
 
-# -- Security context applied to the entire pod
 podSecurityContext: {}
 
-# -- Security context applied to the k8s-shredder container
 securityContext: {}
 
-# -- Init containers to run before the main k8s-shredder container starts
+# Init containers to add into the deployment template spec
 initContainers: []
 
-# -- Additional containers to run alongside k8s-shredder in the same pod
+# Additional containers to add into the deployment template spec
 additionalContainers: []
 
-# -- Resource requests and limits for the k8s-shredder container
 resources:
   limits:
-    # -- Maximum CPU cores the container can use
     cpu: "1"
-    # -- Maximum memory the container can use
     memory: 1Gi
   requests:
-    # -- CPU cores requested for the container (guaranteed allocation)
     cpu: 250m
-    # -- Memory requested for the container (guaranteed allocation)
     memory: 250Mi
 
-# -- Additional volumes to mount in the pod
 volumes: []
-# Example volume configuration:
 # - name: ca
 #   secret:
 #     secretName: k8s-shredder-ca
@@ -119,39 +64,28 @@ volumes: []
 #       - key: ca.pem
 #         path: ca.pem
 
-# -- Node selector to constrain pod scheduling to specific nodes
 nodeSelector: {}
 
-# -- Tolerations to allow scheduling on nodes with specific taints
 tolerations: []
 
-# -- Affinity rules for advanced pod scheduling (node affinity, pod affinity/anti-affinity)
 affinity: {}
 
-# -- Prometheus monitoring configuration
 podMonitor:
-  # -- Enable creation of a PodMonitor resource for Prometheus scraping
   enabled: false
-  # -- Labels to apply to the PodMonitor resource
   labels: {}
     # app: k8s-shredder
     # subsystem: k8s-a
-  # -- How often Prometheus should scrape metrics
   interval: 60s
-  # -- Timeout for each scrape attempt
   scrapeTimeout: 10s
-  # -- Whether to honor labels from the target
   honorLabels: true
-  # -- Metric relabeling configuration
   relabelings: []
 
-# -- Priority class for pod scheduling - system-cluster-critical ensures high priority
+# A priority class can be optionally attached to the pod spec if one is needed
 priorityClassName: system-cluster-critical
 
-# -- Topology spread constraints to control pod distribution across failure domains
-# -- Helps ensure high availability by spreading pods across zones/nodes
+## Topology spread constraints rely on node labels to identify the topology domain(s) that each Node is in.
+## Ref: https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/
 topologySpreadConstraints: []
-  # Example configuration:
   # - maxSkew: 1
   #   topologyKey: topology.kubernetes.io/zone
   #   whenUnsatisfiable: DoNotSchedule

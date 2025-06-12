@@ -1,7 +1,7 @@
 apiVersion: v2
 name: k8s-shredder
 
-description: a novel way of dealing with kubernetes nodes blocked from draining
+description: K8s-shredder introduces the concept of parked nodes which aims to address some critical aspects on a Kubernetes cluster while rotating the worker nodes during a cluster upgrade.
 
 type: application
 
@@ -11,9 +11,6 @@ maintainers:
 - name: adriananeci
   email: aneci@adobe.com
   url: https://adobe.com
-- name: sfotony
-  email: gosselin@adobe.com
-  url: https://adobe.com
 
-version: 0.2.0
-appVersion: v0.3.0
+version: 0.1.2
+appVersion: v0.2.2

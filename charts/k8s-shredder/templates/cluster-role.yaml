@@ -8,7 +8,7 @@ metadata:
 rules:
 - apiGroups: ["*"]
   resources: [nodes]
-  verbs: [get, list, watch, update, patch]
+  verbs: [get, list, watch]
 - apiGroups: ["*"]
   resources: [pods, pods/eviction]
   verbs: ["*"]
@@ -18,7 +18,4 @@ rules:
 - apiGroups: [ "argoproj.io" ]
   resources: [ rollouts ]
   verbs: [ get, list, watch, update, patch ]
-- apiGroups: [ "karpenter.sh" ]
-  resources: [ nodeclaims ]
-  verbs: [ get, list, watch ]
 {{ end }}

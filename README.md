@@ -103,6 +103,10 @@ k8s-shredder includes optional automatic detection of nodes with specific labels
 
 This integration allows k8s-shredder to automatically handle node lifecycle management based on custom labeling strategies, enabling teams to mark nodes for parking using their own operational workflows and labels.  For example, this can be used in conjunction with [AKS cluster upgrades](https://learn.microsoft.com/en-us/azure/aks/upgrade-cluster#set-new-cordon-behavior).
 
+## Metrics
+
+k8s-shredder exposes comprehensive metrics for monitoring its operation. You can find detailed information about all available metrics in the [metrics documentation](docs/metrics.md).
+
 #### Creating a new release
 
 See [RELEASE.md](RELEASE.md).

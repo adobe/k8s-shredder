@@ -52,7 +52,7 @@ echo "KIND: deploying k8s-shredder with node label detection enabled..."
 kubectl apply -f "${test_dir}/k8s-shredder-node-labels.yaml"
 
 echo "KIND: deploying prometheus..."
-kubectl apply -f "${test_dir}/prometheus_stuffs.yaml"
+kubectl apply -f "${test_dir}/prometheus_stuffs_node_labels.yaml"
 
 echo "KIND: deploying Argo Rollouts CRD..."
 kubectl apply -f https://raw.githubusercontent.com/argoproj/argo-rollouts/v1.7.2/manifests/crds/rollout-crd.yaml
@@ -124,6 +124,7 @@ echo "  - test-label (key only)"
 echo "  - maintenance=scheduled (key=value)"
 echo "  - node.test.io/park (key only)"
 echo ""
+
 echo "NODE_LABELS: Now applying test labels to trigger node label detection..."
 
 # Apply test labels to trigger k8s-shredder's node label detection

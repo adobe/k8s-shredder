@@ -27,4 +27,11 @@ nodes:
       kind: JoinConfiguration
       nodeRegistration:
         kubeletExtraArgs:
+          node-labels: "node.kubernetes.io/role=worker"
+- role: worker
+  kubeadmConfigPatches:
+    - |
+      kind: JoinConfiguration
+      nodeRegistration:
+        kubeletExtraArgs:
           node-labels: "node.kubernetes.io/role=worker" 

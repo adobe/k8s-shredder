@@ -55,6 +55,16 @@ lint: ## Lint go code and YAML files
 	} || { \
 		echo >&2 "[WARN] I require yamlfix but it's not installed (see https://github.com/lyz-code/yamlfix). Skipping YAML lint."; \
 	}
+	@hash kubeconform 2>/dev/null && { \
+		echo "Validating Kubernetes manifests with kubeconform..."; \
+		find internal/testing -name "*.yaml" -o -name "*.yml" | xargs kubeconform -strict -skip CustomResourceDefinition,EC2NodeClass,NodePool,Rollout,Cluster || { \
+			echo "Kubeconform found schema errors. Please fix them."; \
+			exit 1; \
+		} ; \
+		echo "Kubeconform validation OK!" ; \
+	} || { \
+		echo >&2 "[WARN] I require kubeconform but it's not installed (see https://github.com/yannh/kubeconform). Skipping kubeconform lint."; \
+	}
 	@hash helm-docs 2>/dev/null && { \
 		echo "Checking Helm documentation..."; \
 		helm-docs --chart-search-root=charts --template-files=README.md.gotmpl --dry-run >/dev/null 2>&1 || { \

@@ -5,27 +5,34 @@ networking:
   apiServerPort: 6445
   apiServerAddress: 0.0.0.0
 nodes:
-- role: control-plane
-  extraPortMappings:
-  - containerPort: 30007
-    hostPort: 30009
-  kubeadmConfigPatches:
-    - |
-      kind: InitConfiguration
-      nodeRegistration:
-        kubeletExtraArgs:
-          node-labels: "node.kubernetes.io/role=etcd,node.kubernetes.io/role=master"
-- role: worker
-  kubeadmConfigPatches:
-    - |
-      kind: JoinConfiguration
-      nodeRegistration:
-        kubeletExtraArgs:
-          node-labels: "node.kubernetes.io/role=worker"
-- role: worker
-  kubeadmConfigPatches:
-    - |
-      kind: JoinConfiguration
-      nodeRegistration:
-        kubeletExtraArgs:
-          node-labels: "node.kubernetes.io/role=worker" 
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30007
+        hostPort: 30009
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "node.kubernetes.io/role=etcd,node.kubernetes.io/role=master"
+  - role: worker
+    kubeadmConfigPatches:
+      - |
+        kind: JoinConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "node.kubernetes.io/role=worker"
+  - role: worker
+    kubeadmConfigPatches:
+      - |-
+        kind: JoinConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "node.kubernetes.io/role=worker"
+  - role: worker
+    kubeadmConfigPatches:
+      - |-
+        kind: JoinConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "node.kubernetes.io/role=worker"

@@ -31,7 +31,6 @@ jobs:
         run: make local-test
       - name: Run e2e tests
         run: make e2e-tests
-
   ci-karpenter:
     runs-on: ubuntu-latest
     name: ci-karpenter
@@ -51,7 +50,7 @@ jobs:
         with:
           # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
           # version: v1.46
-           args: -v --timeout 5m --no-config ./...
+          args: -v --timeout 5m --no-config ./...
       - name: Install k8s Kind Cluster
         uses: helm/kind-action@v1.12.0
         with:
@@ -61,7 +60,6 @@ jobs:
         run: make local-test-karpenter
       - name: Run e2e tests
         run: make e2e-tests
-
   ci-node-labels:
     runs-on: ubuntu-latest
     name: ci-node-labels
@@ -81,7 +79,7 @@ jobs:
         with:
           # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
           # version: v1.46
-           args: -v --timeout 5m --no-config ./...
+          args: -v --timeout 5m --no-config ./...
       - name: Install k8s Kind Cluster
         uses: helm/kind-action@v1.12.0
         with:

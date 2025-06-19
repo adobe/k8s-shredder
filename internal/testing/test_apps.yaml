@@ -99,7 +99,7 @@ spec:
                 matchExpressions:
                   - key: will-be-parked
                     operator: In
-                    values: [true]
+                    values: ['true']
       containers:
         - name: canary
           image: aaneci/canary

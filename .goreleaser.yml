@@ -1,94 +1,82 @@
+---
 version: 2
-
 project_name: k8s-shredder
-
 release:
   github:
     owner: adobe
     name: k8s-shredder
 builds:
   - id: k8s-shredder
-    goos:
-      - linux
-      - windows
-      - darwin
-    goarch:
-      - amd64
-      - "386"
-      - arm64
-    env:
-      - CGO_ENABLED=0
+    goos: [linux, windows, darwin]
+    goarch: [amd64, '386', arm64]
+    env: [CGO_ENABLED=0]
     main: .
     ldflags:
-      - -s -w -X github.com/adobe/k8s-shredder/cmd.buildVersion=v{{.Version}} -X github.com/adobe/k8s-shredder/cmd.gitSHA={{.Commit}} -X github.com/adobe/k8s-shredder/cmd.buildTime={{.Date}}
-    flags:
-      - -trimpath
+      - -s -w -X github.com/adobe/k8s-shredder/cmd.buildVersion=v{{.Version}} -X github.com/adobe/k8s-shredder/cmd.gitSHA={{.Commit}}
+        -X github.com/adobe/k8s-shredder/cmd.buildTime={{.Date}}
+    flags: [-trimpath]
     binary: k8s-shredder
-
 # signs the checksum file
 # all files (including the sboms) are included in the checksum, so we don't need to sign each one if we don't want to
 # https://goreleaser.com/customization/sign
 signs:
   - cmd: cosign
-    env:
-      - COSIGN_EXPERIMENTAL=1
-    certificate: '${artifact}.pem'
+    env: [COSIGN_EXPERIMENTAL=1]
+    certificate: ${artifact}.pem
     args:
       - sign-blob
-      - '--output-certificate=${certificate}'
-      - '--output-signature=${signature}'
-      - '${artifact}'
-      - "--yes" # needed on cosign 2.0.0+
+      - --output-certificate=${certificate}
+      - --output-signature=${signature}
+      - ${artifact}
+      - --yes  # needed on cosign 2.0.0+
     artifacts: checksum
     output: true
-
 dockers:
-  - image_templates: ["ghcr.io/adobe/{{ .ProjectName }}:v{{ .Version }}-amd64"]
+  - image_templates: ['ghcr.io/adobe/{{ .ProjectName }}:v{{ .Version }}-amd64']
     use: buildx
     dockerfile: Dockerfile
     build_flag_templates:
-    - "--platform=linux/amd64"
-    - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-    - "--label=org.opencontainers.image.description={{ .ProjectName }}"
-    - "--label=org.opencontainers.image.url=https://github.com/adobe/{{ .ProjectName }}"
-    - "--label=org.opencontainers.image.source=https://github.com/adobe/{{ .ProjectName }}"
-    - "--label=org.opencontainers.image.version=v{{ .Version }}"
-    - "--label=org.opencontainers.image.created={{ .Date }}"
-    - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-    - "--label=org.opencontainers.image.licenses=Apache-2.0"
-  - image_templates: ["ghcr.io/adobe/{{ .ProjectName }}:v{{ .Version }}-arm64v8"]
+      - --platform=linux/amd64
+      - --label=org.opencontainers.image.title={{ .ProjectName }}
+      - --label=org.opencontainers.image.description={{ .ProjectName }}
+      - --label=org.opencontainers.image.url=https://github.com/adobe/{{ .ProjectName }}
+      - --label=org.opencontainers.image.source=https://github.com/adobe/{{ .ProjectName }}
+      - --label=org.opencontainers.image.version=v{{ .Version }}
+      - --label=org.opencontainers.image.created={{ .Date }}
+      - --label=org.opencontainers.image.revision={{ .FullCommit }}
+      - --label=org.opencontainers.image.licenses=Apache-2.0
+  - image_templates:
+      - ghcr.io/adobe/{{ .ProjectName }}:v{{ .Version }}-arm64v8
     use: buildx
     goarch: arm64
     dockerfile: Dockerfile
     build_flag_templates:
-    - "--platform=linux/arm64/v8"
-    - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-    - "--label=org.opencontainers.image.description={{ .ProjectName }}"
-    - "--label=org.opencontainers.image.url=https://github.com/adobe/{{ .ProjectName }}"
-    - "--label=org.opencontainers.image.source=https://github.com/adobe/{{ .ProjectName }}"
-    - "--label=org.opencontainers.image.version=v{{ .Version }}"
-    - "--label=org.opencontainers.image.created={{ .Date }}"
-    - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-    - "--label=org.opencontainers.image.licenses=Apache-2.0"
+      - --platform=linux/arm64/v8
+      - --label=org.opencontainers.image.title={{ .ProjectName }}
+      - --label=org.opencontainers.image.description={{ .ProjectName }}
+      - --label=org.opencontainers.image.url=https://github.com/adobe/{{ .ProjectName }}
+      - --label=org.opencontainers.image.source=https://github.com/adobe/{{ .ProjectName }}
+      - --label=org.opencontainers.image.version=v{{ .Version }}
+      - --label=org.opencontainers.image.created={{ .Date }}
+      - --label=org.opencontainers.image.revision={{ .FullCommit }}
+      - --label=org.opencontainers.image.licenses=Apache-2.0
 docker_manifests:
   - name_template: ghcr.io/adobe/{{.ProjectName}}:v{{.Version}}
     image_templates:
-    - ghcr.io/adobe/{{.ProjectName}}:v{{.Version}}-amd64
-    - ghcr.io/adobe/{{.ProjectName}}:v{{.Version}}-arm64v8
+      - ghcr.io/adobe/{{.ProjectName}}:v{{.Version}}-amd64
+      - ghcr.io/adobe/{{.ProjectName}}:v{{.Version}}-arm64v8
   - name_template: ghcr.io/adobe/{{.ProjectName}}:latest
     image_templates:
       - ghcr.io/adobe/{{.ProjectName}}:v{{.Version}}-amd64
       - ghcr.io/adobe/{{.ProjectName}}:v{{.Version}}-arm64v8
-
 # signs our docker image
 # https://goreleaser.com/customization/docker_sign
 docker_signs:
   - cmd: cosign
-    env:
-      - COSIGN_EXPERIMENTAL=1
+    env: [COSIGN_EXPERIMENTAL=1]
     artifacts: images
     output: true
     args:
-      - 'sign'
-      - '${artifact}'
-      - "--yes" # needed on cosign 2.0.0+
+      - sign
+      - ${artifact}
+      - --yes  # needed on cosign 2.0.0+

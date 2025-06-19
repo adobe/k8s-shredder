@@ -1,10 +1,8 @@
+---
 apiVersion: v2
 name: k8s-shredder
-
 description: a novel way of dealing with kubernetes nodes blocked from draining
-
 type: application
-
 home: https://github.com/adobe/k8s-shredder
 icon: https://raw.githubusercontent.com/adobe/k8s-shredder/main/docs/k8s-shredder_logo.jpg
 maintainers:

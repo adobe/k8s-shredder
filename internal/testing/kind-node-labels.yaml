@@ -1,3 +1,4 @@
+---
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 networking:
@@ -14,13 +15,6 @@ nodes:
       nodeRegistration:
         kubeletExtraArgs:
           node-labels: "node.kubernetes.io/role=etcd,node.kubernetes.io/role=master"
-- role: worker
-  kubeadmConfigPatches:
-    - |
-      kind: JoinConfiguration
-      nodeRegistration:
-        kubeletExtraArgs:
-          node-labels: "node.kubernetes.io/role=worker"
 - role: worker
   kubeadmConfigPatches:
     - |

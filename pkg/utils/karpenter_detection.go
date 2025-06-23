@@ -1,5 +1,5 @@
 /*
-Copyright 2022 Adobe. All rights reserved.
+Copyright 2025 Adobe. All rights reserved.
 This file is licensed to you under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License. You may obtain a copy
 of the License at http://www.apache.org/licenses/LICENSE-2.0
@@ -13,8 +13,10 @@ package utils
 
 import (
 	"context"
+	"time"
 
 	"github.com/adobe/k8s-shredder/pkg/config"
+	"github.com/adobe/k8s-shredder/pkg/metrics"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -242,12 +244,18 @@ func ProcessDriftedKarpenterNodes(ctx context.Context, appContext *AppContext, l
 
 	logger.Info("Starting Karpenter drift detection and node labeling process")
 
+	// Start timing the processing duration
+	startTime := time.Now()
+
 	// Find drifted Karpenter NodeClaims
 	driftedNodeClaims, err := FindDriftedKarpenterNodeClaims(ctx, appContext.DynamicK8SClient, appContext.K8sClient, appContext.Config, logger)
 	if err != nil {
 		logger.WithError(err).Error("Failed to find drifted Karpenter NodeClaims")
 		return errors.Wrap(err, "failed to find drifted Karpenter NodeClaims")
 	}
+
+	// Increment the drifted nodes counter
+	metrics.ShredderKarpenterDriftedNodesTotal.Add(float64(len(driftedNodeClaims)))
 
 	if len(driftedNodeClaims) == 0 {
 		logger.Info("No drifted Karpenter NodeClaims found")
@@ -258,8 +266,18 @@ func ProcessDriftedKarpenterNodes(ctx context.Context, appContext *AppContext, l
 	err = LabelDriftedNodes(ctx, appContext.K8sClient, driftedNodeClaims, appContext.Config, appContext.IsDryRun(), logger)
 	if err != nil {
 		logger.WithError(err).Error("Failed to label drifted nodes")
+		metrics.ShredderKarpenterNodesParkingFailedTotal.Add(float64(len(driftedNodeClaims)))
+		metrics.ShredderNodesParkingFailedTotal.Add(float64(len(driftedNodeClaims)))
 		return errors.Wrap(err, "failed to label drifted nodes")
 	}
+
+	// Increment the successfully parked nodes counter
+	metrics.ShredderKarpenterNodesParkedTotal.Add(float64(len(driftedNodeClaims)))
+	metrics.ShredderNodesParkedTotal.Add(float64(len(driftedNodeClaims)))
+
+	// Record the processing duration
+	metrics.ShredderKarpenterProcessingDurationSeconds.Observe(time.Since(startTime).Seconds())
+	metrics.ShredderProcessingDurationSeconds.Observe(time.Since(startTime).Seconds())
 
 	logger.WithField("processedNodes", len(driftedNodeClaims)).Info("Completed Karpenter drift detection and node labeling process")
 

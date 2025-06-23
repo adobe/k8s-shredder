@@ -1,5 +1,5 @@
 /*
-Copyright 2022 Adobe. All rights reserved.
+Copyright 2025 Adobe. All rights reserved.
 This file is licensed to you under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License. You may obtain a copy
 of the License at http://www.apache.org/licenses/LICENSE-2.0
@@ -14,6 +14,7 @@ package utils
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/adobe/k8s-shredder/pkg/config"
 	"github.com/pkg/errors"
@@ -21,6 +22,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"github.com/adobe/k8s-shredder/pkg/metrics"
 )
 
 // NodeLabelInfo holds information about a node that matches the label criteria
@@ -163,12 +165,18 @@ func ProcessNodesWithLabels(ctx context.Context, appContext *AppContext, logger 
 
 	logger.Info("Starting node label detection and parking process")
 
+	// Start timing the processing duration
+	startTime := time.Now()
+
 	// Find nodes with specified labels
 	matchingNodes, err := FindNodesWithLabels(ctx, appContext.K8sClient, appContext.Config, logger)
 	if err != nil {
 		logger.WithError(err).Error("Failed to find nodes with specified labels")
 		return errors.Wrap(err, "failed to find nodes with specified labels")
 	}
+
+	// Update the matching nodes gauge
+	metrics.ShredderNodeLabelMatchingNodesTotal.Set(float64(len(matchingNodes)))
 
 	if len(matchingNodes) == 0 {
 		logger.Info("No nodes found matching the specified label criteria")
@@ -179,8 +187,18 @@ func ProcessNodesWithLabels(ctx context.Context, appContext *AppContext, logger 
 	err = ParkNodesWithLabels(ctx, appContext.K8sClient, matchingNodes, appContext.Config, appContext.IsDryRun(), logger)
 	if err != nil {
 		logger.WithError(err).Error("Failed to label nodes matching criteria")
+		metrics.ShredderNodeLabelNodesParkingFailedTotal.Add(float64(len(matchingNodes)))
+		metrics.ShredderNodesParkingFailedTotal.Add(float64(len(matchingNodes)))
 		return errors.Wrap(err, "failed to label nodes matching criteria")
 	}
+
+	// Increment the successfully parked nodes counter
+	metrics.ShredderNodeLabelNodesParkedTotal.Add(float64(len(matchingNodes)))
+	metrics.ShredderNodesParkedTotal.Add(float64(len(matchingNodes)))
+
+	// Record the processing duration
+	metrics.ShredderNodeLabelProcessingDurationSeconds.Observe(time.Since(startTime).Seconds())
+	metrics.ShredderProcessingDurationSeconds.Observe(time.Since(startTime).Seconds())
 
 	logger.WithField("processedNodes", len(matchingNodes)).Info("Completed node label detection and parking process")
 

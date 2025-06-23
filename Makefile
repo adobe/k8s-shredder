@@ -101,7 +101,16 @@ unit-test: ## Run unit tests
 
 e2e-tests:  ## Run e2e tests for k8s-shredder deployed in a local kind cluster
 	@echo "Run e2e tests for k8s-shredder..."
-	@KUBECONFIG=${PWD}/${KUBECONFIG_LOCALTEST} go test internal/testing/e2e_test.go -v
+	@if [ -f "${PWD}/${KUBECONFIG_KARPENTER}" ]; then \
+		echo "Using Karpenter test cluster configuration..."; \
+		KUBECONFIG=${PWD}/${KUBECONFIG_KARPENTER} go test internal/testing/e2e_test.go -v; \
+	elif [ -f "${PWD}/${KUBECONFIG_NODE_LABELS}" ]; then \
+		echo "Using node labels test cluster configuration..."; \
+		KUBECONFIG=${PWD}/${KUBECONFIG_NODE_LABELS} go test internal/testing/e2e_test.go -v; \
+	else \
+		echo "Using default test cluster configuration..."; \
+		KUBECONFIG=${PWD}/${KUBECONFIG_LOCALTEST} go test internal/testing/e2e_test.go -v; \
+	fi
 
 # DEMO targets
 # -----------

@@ -24,8 +24,12 @@ if [[ ${node_count} -eq 0 ]]; then
 fi
 
 # Get the first available node for testing
-test_node=$(kubectl get nodes --no-headers -o custom-columns=":metadata.name" | head -1)
-echo "KARPENTER: Using node '${test_node}' for testing"
+test_node=$(kubectl get nodes --no-headers -o custom-columns=":metadata.name" | grep -v "control-plane" | head -1)
+if [[ -z "${test_node}" ]]; then
+    echo "ERROR: No worker nodes available for testing"
+    exit 1
+fi
+echo "KARPENTER: Using worker node '${test_node}' for testing"
 
 echo "KARPENTER: Creating mock drifted NodeClaim..."
 # Create a mock NodeClaim that appears to be drifted

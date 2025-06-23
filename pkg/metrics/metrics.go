@@ -103,4 +103,95 @@ var (
 		},
 		[]string{"pod_name", "namespace"},
 	)
+
+	// ShredderKarpenterDriftedNodesTotal = Total number of drifted Karpenter nodes detected
+	ShredderKarpenterDriftedNodesTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "shredder_karpenter_drifted_nodes_total",
+			Help: "Total number of drifted Karpenter nodes detected",
+		},
+	)
+
+	// ShredderKarpenterNodesParkedTotal = Total number of Karpenter nodes successfully parked
+	ShredderKarpenterNodesParkedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "shredder_karpenter_nodes_parked_total",
+			Help: "Total number of Karpenter nodes successfully parked",
+		},
+	)
+
+	// ShredderKarpenterNodesParkingFailedTotal = Total number of Karpenter nodes that failed to be parked
+	ShredderKarpenterNodesParkingFailedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "shredder_karpenter_nodes_parking_failed_total",
+			Help: "Total number of Karpenter nodes that failed to be parked",
+		},
+	)
+
+	// ShredderKarpenterProcessingDurationSeconds = Duration of Karpenter node processing in seconds
+	ShredderKarpenterProcessingDurationSeconds = prometheus.NewSummary(
+		prometheus.SummaryOpts{
+			Name:       "shredder_karpenter_processing_duration_seconds",
+			Help:       "Duration of Karpenter node processing in seconds",
+			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+		},
+	)
+
+	// ShredderNodeLabelNodesParkedTotal = Total number of nodes successfully parked via node label detection
+	ShredderNodeLabelNodesParkedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "shredder_node_label_nodes_parked_total",
+			Help: "Total number of nodes successfully parked via node label detection",
+		},
+	)
+
+	// ShredderNodeLabelNodesParkingFailedTotal = Total number of nodes that failed to be parked via node label detection
+	ShredderNodeLabelNodesParkingFailedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "shredder_node_label_nodes_parking_failed_total",
+			Help: "Total number of nodes that failed to be parked via node label detection",
+		},
+	)
+
+	// ShredderNodeLabelProcessingDurationSeconds = Duration of node label detection and parking process in seconds
+	ShredderNodeLabelProcessingDurationSeconds = prometheus.NewSummary(
+		prometheus.SummaryOpts{
+			Name:       "shredder_node_label_processing_duration_seconds",
+			Help:       "Duration of node label detection and parking process in seconds",
+			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+		},
+	)
+
+	// ShredderNodeLabelMatchingNodesTotal = Total number of nodes matching the label criteria
+	ShredderNodeLabelMatchingNodesTotal = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "shredder_node_label_matching_nodes_total",
+			Help: "Total number of nodes matching the label criteria",
+		},
+	)
+
+	// ShredderNodesParkedTotal = Total number of nodes successfully parked (shared across all detection methods)
+	ShredderNodesParkedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "shredder_nodes_parked_total",
+			Help: "Total number of nodes successfully parked (shared across all detection methods)",
+		},
+	)
+
+	// ShredderNodesParkingFailedTotal = Total number of nodes that failed to be parked (shared across all detection methods)
+	ShredderNodesParkingFailedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "shredder_nodes_parking_failed_total",
+			Help: "Total number of nodes that failed to be parked (shared across all detection methods)",
+		},
+	)
+
+	// ShredderProcessingDurationSeconds = Duration of node processing in seconds (shared across all detection methods)
+	ShredderProcessingDurationSeconds = prometheus.NewSummary(
+		prometheus.SummaryOpts{
+			Name:       "shredder_processing_duration_seconds",
+			Help:       "Duration of node processing in seconds (shared across all detection methods)",
+			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+		},
+	)
 )

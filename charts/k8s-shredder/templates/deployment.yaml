@@ -47,6 +47,7 @@ spec:
           args:
           - "--config=/k8s-shredder-config/config.yaml"
           - "--metrics-port=8080"
+          - "--log-level={{ .Values.logLevel }}"
           {{- if .Values.dryRun }}
           - "--dry-run"
           {{- end }}
@@ -86,13 +87,29 @@ spec:
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.affinity }}
+      {{- if .Values.affinity }}
       affinity:
-        {{- toYaml . | nindent 8 }}
+        {{- toYaml .Values.affinity | nindent 8 }}
+      {{- else }}
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            preference:
+              matchExpressions:
+              - key: node.kubernetes.io/role
+                operator: In
+                values:
+                - master
       {{- end }}
-      {{- with .Values.tolerations }}
+      {{- if .Values.tolerations }}
       tolerations:
-        {{- toYaml . | nindent 8 }}
+        {{- toYaml .Values.tolerations | nindent 8 }}
+      {{- else }}
+      tolerations:
+      - key: "node-role.kubernetes.io/control-plane"
+        operator: "Exists"
+        effect: "NoSchedule"
       {{- end }}
       {{- with .Values.topologySpreadConstraints }}
       topologySpreadConstraints:

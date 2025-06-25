@@ -5,7 +5,7 @@
 # build artifacts
 kubeconfig*
 dist
-k8s-shredder
+/k8s-shredder
 my-k8s-shredder-values.yaml
 
 # Test binary, build with `go test -c`

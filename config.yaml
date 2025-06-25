@@ -3,35 +3,29 @@
 # See README.md for detailed description of each option
 
 # Core eviction settings
-EvictionLoopInterval: "60s"                                          # How often to run the eviction loop process
-ParkedNodeTTL: "60m"                                                 # Time a node can be parked before starting force eviction process
-RollingRestartThreshold: 0.5                                        # How much time(percentage) should pass from ParkedNodeTTL before starting the rollout restart process
-
+EvictionLoopInterval: 60s  # How often to run the eviction loop process
+ParkedNodeTTL: 60m  # Time a node can be parked before starting force eviction process
+RollingRestartThreshold: 0.5  # How much time(percentage) should pass from ParkedNodeTTL before starting the rollout restart process
 # Node and pod labeling
-UpgradeStatusLabel: "shredder.ethos.adobe.net/upgrade-status"        # Label used for identifying parked nodes
-ExpiresOnLabel: "shredder.ethos.adobe.net/parked-node-expires-on"    # Label used for identifying the TTL for parked nodes
-ParkedByLabel: "shredder.ethos.adobe.net/parked-by"                  # Label used to identify which component parked the node
-ParkedByValue: "k8s-shredder"                                        # Value to set for the ParkedByLabel
-
+UpgradeStatusLabel: shredder.ethos.adobe.net/upgrade-status  # Label used for identifying parked nodes
+ExpiresOnLabel: shredder.ethos.adobe.net/parked-node-expires-on  # Label used for identifying the TTL for parked nodes
+ParkedByLabel: shredder.ethos.adobe.net/parked-by  # Label used to identify which component parked the node
+ParkedByValue: k8s-shredder  # Value to set for the ParkedByLabel
 # Eviction behavior
-NamespacePrefixSkipInitialEviction: ""                               # For pods in namespaces having this prefix proceed directly with a rollout restart without waiting for the RollingRestartThreshold
-RestartedAtAnnotation: "shredder.ethos.adobe.net/restartedAt"        # Annotation name used to mark a controller object for rollout restart
-AllowEvictionLabel: "shredder.ethos.adobe.net/allow-eviction"        # Label used for skipping evicting pods that have explicitly set this label on false
-
+NamespacePrefixSkipInitialEviction: ''  # For pods in namespaces having this prefix proceed directly with a rollout restart without waiting for the RollingRestartThreshold
+RestartedAtAnnotation: shredder.ethos.adobe.net/restartedAt  # Annotation name used to mark a controller object for rollout restart
+AllowEvictionLabel: shredder.ethos.adobe.net/allow-eviction  # Label used for skipping evicting pods that have explicitly set this label on false
 # Node management
-ToBeDeletedTaint: "ToBeDeletedByClusterAutoscaler"                   # Node taint used for skipping a subset of parked nodes that are already handled by cluster-autoscaler
-ParkedNodeTaint: "shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule"  # Taint to apply to parked nodes in format key=value:effect
-
+ToBeDeletedTaint: ToBeDeletedByClusterAutoscaler  # Node taint used for skipping a subset of parked nodes that are already handled by cluster-autoscaler
+ParkedNodeTaint: shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule  # Taint to apply to parked nodes in format key=value:effect
 # Argo Rollouts integration
-ArgoRolloutsAPIVersion: "v1alpha1"                                   # API version from argoproj.io API group to be used while handling Argo Rollouts objects
-
+ArgoRolloutsAPIVersion: v1alpha1  # API version from argoproj.io API group to be used while handling Argo Rollouts objects
 # Karpenter integration
-EnableKarpenterDriftDetection: false                                 # Controls whether to scan for drifted Karpenter NodeClaims and automatically label their nodes
-
+EnableKarpenterDriftDetection: false  # Controls whether to scan for drifted Karpenter NodeClaims and automatically label their nodes
 # Node label detection
-EnableNodeLabelDetection: false                                      # Controls whether to scan for nodes with specific labels and automatically park them
-NodeLabelsToDetect: []                                               # List of node labels to detect. Supports both key-only and key=value formats
-  # Examples:
-  # - "maintenance"                    # Matches any node with the "maintenance" label (any value)
-  # - "upgrade=required"               # Matches nodes with label "upgrade" set to "required"
-  # - "node.example.com/park"          # Matches any node with the "node.example.com/park" label
+EnableNodeLabelDetection: false  # Controls whether to scan for nodes with specific labels and automatically park them
+NodeLabelsToDetect: []  # List of node labels to detect. Supports both key-only and key=value formats
+# Examples:
+# - "maintenance"  # Matches any node with the "maintenance" label (any value)
+# - "upgrade=required"               # Matches nodes with label "upgrade" set to "required"
+# - "node.example.com/park"  # Matches any node with the "node.example.com/park" label

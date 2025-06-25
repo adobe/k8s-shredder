@@ -53,7 +53,7 @@ var (
 
 	// Global variables for port-forward management
 	prometheusPortForwardCmd *exec.Cmd
-	prometheusPort          string
+	prometheusPort           string
 )
 
 // setupPrometheusPortForward starts the Prometheus port-forward and waits for it to be ready
@@ -75,17 +75,17 @@ func setupPrometheusPortForward(t *testing.T) error {
 	}
 
 	// Start port-forward for Prometheus
-	cmd := exec.Command("kubectl", "port-forward", "-n", "kube-system", "svc/prometheus", 
+	cmd := exec.Command("kubectl", "port-forward", "-n", "kube-system", "svc/prometheus",
 		fmt.Sprintf("%s:9090", prometheusPort), "--kubeconfig", kubeconfig)
-	
+
 	// Redirect output to avoid cluttering test output
 	cmd.Stdout = nil
 	cmd.Stderr = nil
-	
+
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start port-forward: %v", err)
 	}
-	
+
 	prometheusPortForwardCmd = cmd
 	t.Logf("Started Prometheus port-forward on port %s", prometheusPort)
 
@@ -107,7 +107,7 @@ func setupPrometheusPortForward(t *testing.T) error {
 				t.Logf("Warning: Failed to close response body: %v", closeErr)
 			}
 		}
-		
+
 		time.Sleep(2 * time.Second)
 		retryCount++
 		t.Logf("Waiting for Prometheus port-forward to be ready... (attempt %d/%d)", retryCount, maxRetries)
@@ -208,7 +208,7 @@ func prometheusQuery(query string) (model.Value, v1.Warnings, error) {
 
 	// Create a new client for each query to avoid connection reuse issues
 	client, err := api.NewClient(api.Config{
-		Address: fmt.Sprintf("http://localhost:%s", prometheusPort),
+		Address:      fmt.Sprintf("http://localhost:%s", prometheusPort),
 		RoundTripper: api.DefaultRoundTripper,
 	})
 	if err != nil {

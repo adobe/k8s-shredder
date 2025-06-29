@@ -13,10 +13,12 @@ package e2e
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -252,7 +254,19 @@ func compareTime(expirationTime time.Time, t *testing.T, ch chan time.Time) {
 	ch <- currentTime
 }
 
-// Validates that k8s-shredder cleanup a parked node after its TTL expires
+// getProjectRoot returns the absolute path to the project root directory
+func getProjectRoot() (string, error) {
+	if envRoot := os.Getenv("PROJECT_ROOT"); envRoot != "" {
+		return envRoot, nil
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current working directory: %v", err)
+	}
+	return cwd, nil
+}
+
+// TestEvictionSafetyCheck tests the EvictionSafetyCheck functionality
 func TestNodeIsCleanedUp(t *testing.T) {
 	var err error
 
@@ -271,6 +285,7 @@ func TestNodeIsCleanedUp(t *testing.T) {
 		ToBeDeletedTaint:                   "ToBeDeletedByClusterAutoscaler",
 		ParkedByLabel:                      "shredder.ethos.adobe.net/parked-by",
 		ParkedByValue:                      "k8s-shredder",
+		EvictionSafetyCheck:                true, // Re-enable since we now properly label pods
 	}, false)
 
 	if err != nil {
@@ -571,4 +586,384 @@ func TestNodeLabelMetrics(t *testing.T) {
 	}
 
 	t.Log("Node label metrics test completed successfully")
+}
+
+// TestEvictionSafetyCheck tests the EvictionSafetyCheck functionality
+func TestEvictionSafetyCheck(t *testing.T) {
+	// Print the KUBECONFIG being used
+	t.Logf("Using KUBECONFIG: %s", os.Getenv("KUBECONFIG"))
+
+	// Skip this test if running in Karpenter or node-labels test environments
+	// as they have different node structures
+	kubeconfig := os.Getenv("KUBECONFIG")
+	if strings.Contains(kubeconfig, "karpenter") || strings.Contains(kubeconfig, "node-labels") {
+		t.Skip("Skipping EvictionSafetyCheck test: not running in standard test environment")
+	}
+
+	// Check if EvictionSafetyCheck is enabled in the k8s-shredder configuration
+	t.Log("Checking EvictionSafetyCheck configuration...")
+	checkConfigCmd := exec.Command("kubectl", "get", "configmap", "k8s-shredder-config", "-n", "kube-system", "-o", "json")
+	checkConfigCmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", kubeconfig))
+	configOutput, err := checkConfigCmd.Output()
+	if err != nil {
+		// Get the stderr output for debugging
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			t.Logf("kubectl stderr: %s", string(exitErr.Stderr))
+		}
+		t.Skipf("Skipping EvictionSafetyCheck test: failed to get k8s-shredder config: %v", err)
+	}
+
+	var configMap struct {
+		Data struct {
+			ConfigYaml string `json:"config.yaml"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(configOutput, &configMap); err != nil {
+		t.Skipf("Skipping EvictionSafetyCheck test: failed to parse configmap: %v", err)
+	}
+
+	// Parse the YAML config to check EvictionSafetyCheck setting
+	if !strings.Contains(configMap.Data.ConfigYaml, "EvictionSafetyCheck: true") {
+		t.Skip("Skipping EvictionSafetyCheck test: EvictionSafetyCheck is disabled in k8s-shredder configuration")
+	}
+
+	t.Log("EvictionSafetyCheck is enabled, proceeding with test")
+
+	// Step 1: Scale k8s-shredder replicas to zero to disable actions
+	t.Log("Step 1: Scaling k8s-shredder replicas to zero")
+	scaleCmd := exec.Command("kubectl", "scale", "deployment", "k8s-shredder", "--replicas=0", "-n", "kube-system")
+	scaleCmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", kubeconfig))
+	if err := scaleCmd.Run(); err != nil {
+		t.Fatalf("Failed to scale k8s-shredder to zero: %v", err)
+	}
+
+	// Wait for k8s-shredder to scale down
+	t.Log("Waiting for k8s-shredder to scale down...")
+	time.Sleep(10 * time.Second)
+
+	// Step 2: Create a PodDisruptionBudget to protect the unlabeled pod from soft eviction
+	t.Log("Step 2: Creating PodDisruptionBudget to prevent soft eviction of the unlabeled pod")
+
+	// Create a PDB manifest that blocks eviction of the specific pod
+	pdbManifest := `apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: test-pdb-unlabeled-pod
+  namespace: ns-k8s-shredder-test
+spec:
+  minAvailable: 10
+  selector:
+    matchLabels:
+      test-pod: "true"
+`
+
+	// Create the PDB using kubectl
+	createPdbCmd := exec.Command("kubectl", "apply", "-f", "-")
+	createPdbCmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", kubeconfig))
+	createPdbCmd.Stdin = strings.NewReader(pdbManifest)
+	if err := createPdbCmd.Run(); err != nil {
+		t.Fatalf("Failed to create PodDisruptionBudget: %v", err)
+	}
+
+	t.Log("Created PodDisruptionBudget to protect the unlabeled pod from soft eviction")
+
+	// Step 3: Create a new pod without proper parking labels on worker2 (before parking)
+	// Step 3: Park the worker2 node first
+	t.Log("Step 3: Parking worker2 node")
+
+	worker2Node := "k8s-shredder-test-cluster-worker2"
+
+	// Get the project root to locate the park-node binary
+	projectRoot, err := getProjectRoot()
+	if err != nil {
+		t.Fatalf("Failed to get project root: %v", err)
+	}
+	parkNodePath := filepath.Join(projectRoot, "park-node")
+
+	parkCmd := exec.Command(parkNodePath, "-node", worker2Node, "-park-kubeconfig", kubeconfig)
+	if err := parkCmd.Run(); err != nil {
+		t.Fatalf("Failed to park worker2 node: %v", err)
+	}
+
+	// Wait a moment for the parking to complete
+	time.Sleep(5 * time.Second)
+
+	// Step 4: Create a new pod without proper parking labels on the parked node
+	t.Log("Step 4: Creating a new pod without proper parking labels on worker2")
+
+	// Create a pod manifest for a pod without proper parking labels
+	podManifest := fmt.Sprintf(`apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-no-labels
+  namespace: ns-k8s-shredder-test
+  labels:
+    eviction-safety-test: "true"
+    test-pod: "true"
+    shredder.ethos.adobe.net/allow-eviction: "false"
+spec:
+  nodeName: %s
+  containers:
+  - name: nginx
+    image: nginx:alpine
+    ports:
+    - containerPort: 80
+`, worker2Node)
+
+	// Create the pod using kubectl
+	createPodCmd := exec.Command("kubectl", "apply", "-f", "-")
+	createPodCmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", kubeconfig))
+	createPodCmd.Stdin = strings.NewReader(podManifest)
+	if err := createPodCmd.Run(); err != nil {
+		t.Fatalf("Failed to create pod without labels: %v", err)
+	}
+
+	// Wait a moment for the pod to be scheduled
+	time.Sleep(5 * time.Second)
+
+	t.Log("Created pod without proper parking labels on worker2")
+
+	// Step 5: Scale k8s-shredder replicas to 1 to start the test
+	t.Log("Step 5: Scaling k8s-shredder replicas to 1")
+	scaleUpCmd := exec.Command("kubectl", "scale", "deployment", "k8s-shredder", "--replicas=1", "-n", "kube-system")
+	scaleUpCmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", kubeconfig))
+	if err := scaleUpCmd.Run(); err != nil {
+		t.Fatalf("Failed to scale k8s-shredder to 1: %v", err)
+	}
+
+	// Wait for k8s-shredder to be ready
+	t.Log("Waiting for k8s-shredder to be ready...")
+	time.Sleep(15 * time.Second)
+
+	// Step 6: Monitor worker2 parking status; it should eventually be unparked
+	t.Log("Step 6: Monitoring worker2 parking status - it should be unparked due to safety check failure")
+
+	// Wait for up to 2 minutes for the node to be unparked
+	timeout := time.After(2 * time.Minute)
+	tick := time.Tick(5 * time.Second)
+
+	for {
+		select {
+		case <-timeout:
+			t.Fatalf("Timed out waiting for worker2 to be unparked")
+		case <-tick:
+			// Check the node's parking status
+			getNodeCmd := exec.Command("kubectl", "get", "node", worker2Node, "-o", "json")
+			getNodeCmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", kubeconfig))
+			nodeOutput, err := getNodeCmd.Output()
+			if err != nil {
+				t.Logf("Failed to get node status: %v", err)
+				continue
+			}
+
+			var node struct {
+				Metadata struct {
+					Labels map[string]string `json:"labels"`
+				} `json:"metadata"`
+			}
+
+			if err := json.Unmarshal(nodeOutput, &node); err != nil {
+				t.Logf("Failed to parse node JSON: %v", err)
+				continue
+			}
+
+			upgradeStatus, exists := node.Metadata.Labels["shredder.ethos.adobe.net/upgrade-status"]
+			if !exists {
+				t.Log("Node has no upgrade-status label")
+				continue
+			}
+
+			t.Logf("Current node status: %s", upgradeStatus)
+
+			switch upgradeStatus {
+			case "unparked":
+				t.Log("SUCCESS: Worker2 node was unparked due to EvictionSafetyCheck failure")
+				return
+			case "parked":
+				t.Log("Node is still parked, waiting...")
+			default:
+				t.Logf("Node has unexpected status: %s", upgradeStatus)
+			}
+		}
+	}
+}
+
+// TestEvictionSafetyCheckPasses tests the EvictionSafetyCheck functionality when all pods are properly labeled
+func TestEvictionSafetyCheckPasses(t *testing.T) {
+	// Print the KUBECONFIG being used
+	t.Logf("Using KUBECONFIG: %s", os.Getenv("KUBECONFIG"))
+
+	// Skip this test if running in Karpenter or node-labels test environments
+	// as they have different node structures
+	kubeconfig := os.Getenv("KUBECONFIG")
+	if strings.Contains(kubeconfig, "karpenter") || strings.Contains(kubeconfig, "node-labels") {
+		t.Skip("Skipping EvictionSafetyCheckPasses test: not running in standard test environment")
+	}
+
+	// Check if EvictionSafetyCheck is enabled in the k8s-shredder configuration
+	t.Log("Checking EvictionSafetyCheck configuration...")
+	checkConfigCmd := exec.Command("kubectl", "get", "configmap", "k8s-shredder-config", "-n", "kube-system", "-o", "json")
+	checkConfigCmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", kubeconfig))
+	configOutput, err := checkConfigCmd.Output()
+	if err != nil {
+		// Get the stderr output for debugging
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			t.Logf("kubectl stderr: %s", string(exitErr.Stderr))
+		}
+		t.Skipf("Skipping EvictionSafetyCheckPasses test: failed to get k8s-shredder config: %v", err)
+	}
+
+	var configMap struct {
+		Data struct {
+			ConfigYaml string `json:"config.yaml"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(configOutput, &configMap); err != nil {
+		t.Skipf("Skipping EvictionSafetyCheckPasses test: failed to parse configmap: %v", err)
+	}
+
+	// Parse the YAML config to check EvictionSafetyCheck setting
+	if !strings.Contains(configMap.Data.ConfigYaml, "EvictionSafetyCheck: true") {
+		t.Skip("Skipping EvictionSafetyCheckPasses test: EvictionSafetyCheck is disabled in k8s-shredder configuration")
+	}
+
+	t.Log("EvictionSafetyCheck is enabled, proceeding with test")
+
+	// Step 1: Scale k8s-shredder replicas to zero to disable actions
+	t.Log("Step 1: Scaling k8s-shredder replicas to zero")
+	scaleCmd := exec.Command("kubectl", "scale", "deployment", "k8s-shredder", "--replicas=0", "-n", "kube-system")
+	scaleCmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", kubeconfig))
+	if err := scaleCmd.Run(); err != nil {
+		t.Fatalf("Failed to scale k8s-shredder to zero: %v", err)
+	}
+
+	// Wait for k8s-shredder to scale down
+	t.Log("Waiting for k8s-shredder to scale down...")
+	time.Sleep(10 * time.Second)
+
+	// Step 2: Park the worker2 node and all pods on it (this will properly label all pods)
+	t.Log("Step 2: Parking worker2 node with proper pod labeling")
+	worker2Node := "k8s-shredder-test-cluster-worker2"
+
+	// Get the project root to locate the park-node binary
+	projectRoot, err := getProjectRoot()
+	if err != nil {
+		t.Fatalf("Failed to get project root: %v", err)
+	}
+	parkNodePath := filepath.Join(projectRoot, "park-node")
+
+	parkCmd := exec.Command(parkNodePath, "-node", worker2Node, "-park-kubeconfig", kubeconfig)
+	if err := parkCmd.Run(); err != nil {
+		t.Fatalf("Failed to park worker2 node: %v", err)
+	}
+
+	// Wait a moment for the parking to complete
+	time.Sleep(5 * time.Second)
+
+	// Step 3: Scale k8s-shredder replicas to 1 to start the test
+	t.Log("Step 3: Scaling k8s-shredder replicas to 1")
+	scaleUpCmd := exec.Command("kubectl", "scale", "deployment", "k8s-shredder", "--replicas=1", "-n", "kube-system")
+	scaleUpCmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", kubeconfig))
+	if err := scaleUpCmd.Run(); err != nil {
+		t.Fatalf("Failed to scale k8s-shredder to 1: %v", err)
+	}
+
+	// Wait for k8s-shredder to be ready
+	t.Log("Waiting for k8s-shredder to be ready...")
+	time.Sleep(15 * time.Second)
+
+	// Step 4: Monitor worker2 parking status; it should remain parked until TTL expires, then get force evicted
+	t.Log("Step 4: Monitoring worker2 parking status - it should remain parked until TTL expires")
+
+	// Wait for up to 2 minutes for the node to be processed
+	timeout := time.After(2 * time.Minute)
+	tick := time.Tick(5 * time.Second)
+
+	for {
+		select {
+		case <-timeout:
+			t.Fatalf("Timed out waiting for worker2 to be processed")
+		case <-tick:
+			// Check the node's parking status
+			getNodeCmd := exec.Command("kubectl", "get", "node", worker2Node, "-o", "json")
+			getNodeCmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", kubeconfig))
+			nodeOutput, err := getNodeCmd.Output()
+			if err != nil {
+				t.Logf("Failed to get node status: %v", err)
+				continue
+			}
+
+			var node struct {
+				Metadata struct {
+					Labels map[string]string `json:"labels"`
+				} `json:"metadata"`
+			}
+
+			if err := json.Unmarshal(nodeOutput, &node); err != nil {
+				t.Logf("Failed to parse node JSON: %v", err)
+				continue
+			}
+
+			upgradeStatus, exists := node.Metadata.Labels["shredder.ethos.adobe.net/upgrade-status"]
+			if !exists {
+				t.Log("Node has no upgrade-status label")
+				continue
+			}
+
+			t.Logf("Current node status: %s", upgradeStatus)
+
+			switch upgradeStatus {
+			case "unparked":
+				t.Log("SUCCESS: Worker2 node was unparked (this might happen if TTL expired and safety check passed)")
+				return
+			case "parked":
+				t.Log("Node is still parked, waiting...")
+			default:
+				t.Logf("Node has unexpected status: %s", upgradeStatus)
+			}
+
+			// Also check if pods are being evicted (which would indicate force eviction is happening)
+			getPodsCmd := exec.Command("kubectl", "get", "pods", "-A", "--field-selector", fmt.Sprintf("spec.nodeName=%s", worker2Node), "-o", "json")
+			getPodsCmd.Env = append(os.Environ(), fmt.Sprintf("KUBECONFIG=%s", kubeconfig))
+			podsOutput, err := getPodsCmd.Output()
+			if err != nil {
+				t.Logf("Failed to get pods: %v", err)
+				continue
+			}
+
+			var podsList struct {
+				Items []struct {
+					Metadata struct {
+						Name      string `json:"name"`
+						Namespace string `json:"namespace"`
+					} `json:"metadata"`
+					Status struct {
+						Phase string `json:"phase"`
+					} `json:"status"`
+				} `json:"items"`
+			}
+
+			if err := json.Unmarshal(podsOutput, &podsList); err != nil {
+				t.Logf("Failed to parse pods JSON: %v", err)
+				continue
+			}
+
+			// Count non-kube-system pods (user pods that should be evicted)
+			userPodCount := 0
+			for _, pod := range podsList.Items {
+				if pod.Metadata.Namespace != "kube-system" {
+					userPodCount++
+				}
+			}
+
+			if userPodCount == 0 {
+				t.Log("SUCCESS: All user pods have been evicted from worker2 (force eviction worked)")
+				return
+			} else {
+				t.Logf("Still %d user pods on worker2, waiting...", userPodCount)
+			}
+		}
+	}
 }

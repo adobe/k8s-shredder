@@ -1,6 +1,6 @@
 # k8s-shredder
 
-![Version: 0.2.4](https://img.shields.io/badge/Version-0.2.4-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.3.1](https://img.shields.io/badge/AppVersion-v0.3.1-informational?style=flat-square)
+![Version: 0.2.5](https://img.shields.io/badge/Version-0.2.5-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.3.1](https://img.shields.io/badge/AppVersion-v0.3.1-informational?style=flat-square)
 
 a novel way of dealing with kubernetes nodes blocked from draining
 
@@ -63,13 +63,16 @@ a novel way of dealing with kubernetes nodes blocked from draining
 | serviceAccount.annotations | object | `{}` | Additional annotations for the service account (useful for IAM roles, etc.) |
 | serviceAccount.create | bool | `true` | Create a service account for k8s-shredder |
 | serviceAccount.name | string | `"k8s-shredder"` | Name of the service account |
-| shredder | object | `{"AllowEvictionLabel":"shredder.ethos.adobe.net/allow-eviction","ArgoRolloutsAPIVersion":"v1alpha1","EnableKarpenterDriftDetection":false,"EnableNodeLabelDetection":false,"EvictionLoopInterval":"1h","ExpiresOnLabel":"shredder.ethos.adobe.net/parked-node-expires-on","NamespacePrefixSkipInitialEviction":"ns-ethos-","NodeLabelsToDetect":[],"ParkedByLabel":"shredder.ethos.adobe.net/parked-by","ParkedByValue":"k8s-shredder","ParkedNodeTTL":"168h","ParkedNodeTaint":"shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule","RestartedAtAnnotation":"shredder.ethos.adobe.net/restartedAt","RollingRestartThreshold":0.1,"ToBeDeletedTaint":"ToBeDeletedByClusterAutoscaler","UpgradeStatusLabel":"shredder.ethos.adobe.net/upgrade-status"}` | Core k8s-shredder configuration |
+| shredder | object | `{"AllowEvictionLabel":"shredder.ethos.adobe.net/allow-eviction","ArgoRolloutsAPIVersion":"v1alpha1","EnableKarpenterDriftDetection":false,"EnableNodeLabelDetection":false,"EvictionLoopInterval":"1h","EvictionSafetyCheck":true,"ExpiresOnLabel":"shredder.ethos.adobe.net/parked-node-expires-on","ExtraParkingLabels":{},"MaxParkedNodes":0,"NamespacePrefixSkipInitialEviction":"ns-ethos-","NodeLabelsToDetect":[],"ParkedByLabel":"shredder.ethos.adobe.net/parked-by","ParkedByValue":"k8s-shredder","ParkedNodeTTL":"168h","ParkedNodeTaint":"shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule","RestartedAtAnnotation":"shredder.ethos.adobe.net/restartedAt","RollingRestartThreshold":0.1,"ToBeDeletedTaint":"ToBeDeletedByClusterAutoscaler","UpgradeStatusLabel":"shredder.ethos.adobe.net/upgrade-status"}` | Core k8s-shredder configuration |
 | shredder.AllowEvictionLabel | string | `"shredder.ethos.adobe.net/allow-eviction"` | Label to explicitly allow eviction on specific resources |
 | shredder.ArgoRolloutsAPIVersion | string | `"v1alpha1"` | API version for Argo Rollouts integration |
 | shredder.EnableKarpenterDriftDetection | bool | `false` | Enable Karpenter drift detection for node lifecycle management |
 | shredder.EnableNodeLabelDetection | bool | `false` | Enable detection of nodes based on specific labels |
 | shredder.EvictionLoopInterval | string | `"1h"` | How often to run the main eviction loop |
+| shredder.EvictionSafetyCheck | bool | `true` | Controls whether to perform safety checks before force eviction |
 | shredder.ExpiresOnLabel | string | `"shredder.ethos.adobe.net/parked-node-expires-on"` | Label used to track when a parked node expires |
+| shredder.ExtraParkingLabels | object | `{}` | Additional labels to apply to nodes and pods during parking |
+| shredder.MaxParkedNodes | int | `0` | Maximum number of nodes that can be parked simultaneously (0 = no limit) |
 | shredder.NamespacePrefixSkipInitialEviction | string | `"ns-ethos-"` | Namespace prefix to skip during initial eviction (useful for system namespaces) |
 | shredder.NodeLabelsToDetect | list | `[]` | List of node labels to monitor for triggering shredder actions |
 | shredder.ParkedByLabel | string | `"shredder.ethos.adobe.net/parked-by"` | Label to track which component parked a node |

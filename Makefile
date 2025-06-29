@@ -2,7 +2,7 @@
 
 NAME ?= adobe/k8s-shredder
 K8S_SHREDDER_VERSION ?= "dev"
-KINDNODE_VERSION ?= "v1.31.9"
+KINDNODE_VERSION ?= "v1.34.0"
 COMMIT ?= $(shell git rev-parse --short HEAD)
 TEST_CLUSTERNAME ?= "k8s-shredder-test-cluster"
 TEST_CLUSTERNAME_KARPENTER ?= "k8s-shredder-test-cluster-karpenter"
@@ -106,6 +106,10 @@ build: check-license lint vet security unit-test ## Builds the local Docker cont
 	@CGO_ENABLED=0 GOOS=linux go build \
     	-ldflags="-s -w -X github.com/adobe/k8s-shredder/cmd.buildVersion=${K8S_SHREDDER_VERSION}-${COMMIT} -X github.com/adobe/k8s-shredder/cmd.gitSHA=${COMMIT} -X github.com/adobe/k8s-shredder/cmd.buildTime=$(date)" \
     	-o k8s-shredder
+	@CGO_ENABLED=0 go build \
+    	-ldflags="-s -w" \
+    	-o park-node \
+    	./cmd/park-node
 	@DOCKER_BUILDKIT=1 docker build -t ${NAME}:${K8S_SHREDDER_VERSION} .
 
 # TEST
@@ -149,13 +153,13 @@ e2e-tests:  ## Run e2e tests for k8s-shredder deployed in a local kind cluster
 	@echo "Run e2e tests for k8s-shredder..."
 	@if [ -f "${PWD}/${KUBECONFIG_KARPENTER}" ]; then \
 		echo "Using Karpenter test cluster configuration..."; \
-		KUBECONFIG=${PWD}/${KUBECONFIG_KARPENTER} go test internal/testing/e2e_test.go -v; \
+		PROJECT_ROOT=${PWD} KUBECONFIG=${PWD}/${KUBECONFIG_KARPENTER} go test internal/testing/e2e_test.go -v; \
 	elif [ -f "${PWD}/${KUBECONFIG_NODE_LABELS}" ]; then \
 		echo "Using node labels test cluster configuration..."; \
-		KUBECONFIG=${PWD}/${KUBECONFIG_NODE_LABELS} go test internal/testing/e2e_test.go -v; \
+		PROJECT_ROOT=${PWD} KUBECONFIG=${PWD}/${KUBECONFIG_NODE_LABELS} go test internal/testing/e2e_test.go -v; \
 	else \
 		echo "Using default test cluster configuration..."; \
-		KUBECONFIG=${PWD}/${KUBECONFIG_LOCALTEST} go test internal/testing/e2e_test.go -v; \
+		PROJECT_ROOT=${PWD} KUBECONFIG=${PWD}/${KUBECONFIG_LOCALTEST} go test internal/testing/e2e_test.go -v; \
 	fi
 
 # DEMO targets
@@ -187,5 +191,5 @@ clean: ## Clean up local testing environment
 	@kind delete cluster --name="${TEST_CLUSTERNAME_KARPENTER}" ## > /dev/null 2>&1 || true
 	@kind delete cluster --name="${TEST_CLUSTERNAME_NODE_LABELS}" ## > /dev/null 2>&1 || true
 	@echo "Removing all generated files and directories"
-	@rm -rf dist/ k8s-shredder kubeconfig ${KUBECONFIG_LOCALTEST} ${KUBECONFIG_KARPENTER} ${KUBECONFIG_NODE_LABELS}
+	@rm -rf dist/ k8s-shredder park-node kubeconfig ${KUBECONFIG_LOCALTEST} ${KUBECONFIG_KARPENTER} ${KUBECONFIG_NODE_LABELS}
 	@echo "Done!"

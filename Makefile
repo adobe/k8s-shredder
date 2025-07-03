@@ -189,4 +189,3 @@ clean: ## Clean up local testing environment
 	@echo "Removing all generated files and directories"
 	@rm -rf dist/ k8s-shredder kubeconfig ${KUBECONFIG_LOCALTEST} ${KUBECONFIG_KARPENTER} ${KUBECONFIG_NODE_LABELS}
 	@echo "Done!"
-

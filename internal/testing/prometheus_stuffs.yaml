@@ -67,5 +67,11 @@ metadata:
     name: prometheus-server-conf
   namespace: kube-system
 data:
-  prometheus.yml: "global:\n  scrape_interval: 5s\n  evaluation_interval: 5s\nscrape_configs:\
-    \      \n  - job_name: 'k8s-shredder'\n    static_configs:\n      - targets: ['k8s-shredder.kube-system.svc.cluster.local:8080']"
+  prometheus.yml: |-
+    global:
+      scrape_interval: 5s
+      evaluation_interval: 5s
+    scrape_configs:      
+      - job_name: 'k8s-shredder'
+        static_configs:
+          - targets: ['k8s-shredder.kube-system.svc.cluster.local:8080']

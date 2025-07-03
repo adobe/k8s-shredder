@@ -22,7 +22,8 @@ spec:
     spec:
       containers:
         - name: canary
-          image: aaneci/canary
+          image: busybox:1.35
+          command: [sh, -c, while true; do sleep 30; done]
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
@@ -58,7 +59,8 @@ spec:
     spec:
       containers:
         - name: canary
-          image: aaneci/canary
+          image: busybox:1.35
+          command: [sh, -c, while true; do sleep 30; done]
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
@@ -102,7 +104,8 @@ spec:
                     values: ['true']
       containers:
         - name: canary
-          image: aaneci/canary
+          image: busybox:1.35
+          command: [sh, -c, while true; do sleep 30; done]
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
@@ -135,7 +138,8 @@ spec:
     spec:
       containers:
         - name: canary
-          image: aaneci/canary
+          image: busybox:1.35
+          command: [sh, -c, while true; do sleep 30; done]
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
@@ -172,7 +176,8 @@ spec:
     spec:
       containers:
         - name: canary
-          image: aaneci/canary
+          image: busybox:1.35
+          command: [sh, -c, while true; do sleep 30; done]
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
@@ -218,7 +223,8 @@ spec:
       terminationGracePeriodSeconds: 10
       containers:
         - name: test-app-statefulset
-          image: aaneci/canary
+          image: busybox:1.35
+          command: [sh, -c, while true; do sleep 30; done]
           ports:
             - containerPort: 8080
               name: web
@@ -268,7 +274,8 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
         - name: test-app-argo-rollout
-          image: aaneci/canary
+          image: busybox:1.35
+          command: [sh, -c, while true; do sleep 30; done]
           ports:
             - containerPort: 8080
               name: web

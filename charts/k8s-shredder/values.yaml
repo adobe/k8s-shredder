@@ -70,7 +70,6 @@ serviceAccount:
   name: k8s-shredder
   # -- Additional annotations for the service account (useful for IAM roles, etc.)
   annotations: {}
-
 # -- Kubernetes service configuration
 service:
   # -- Create a service for k8s-shredder metrics endpoint
@@ -85,7 +84,6 @@ service:
   annotations: {}
   # -- Additional labels for the service
   labels: {}
-
 # -- Annotations to add to k8s-shredder pod(s)
 podAnnotations: {}
 # -- Additional labels to add to k8s-shredder pod(s)

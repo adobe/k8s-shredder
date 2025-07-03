@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -22,37 +23,32 @@ kind: ClusterRole
 metadata:
   name: k8s-shredder
 rules:
-  - apiGroups: ["*"]
+  - apiGroups: ['*']
     resources: [nodes]
     verbs: [get, list, watch, update, patch]
-  - apiGroups: ["*"]
+  - apiGroups: ['*']
     resources: [pods, pods/eviction]
-    verbs: ["*"]
+    verbs: ['*']
   - apiGroups: [apps, extensions]
     resources: [statefulsets, deployments, replicasets]
     verbs: [get, list, watch, update, patch]
-  - apiGroups: [ "argoproj.io" ]
-    resources: [ rollouts ]
-    verbs: [ get, list, watch, update, patch ]
-  - apiGroups: [ "karpenter.sh" ]
-    resources: [ nodeclaims ]
-    verbs: [ get, list, watch ]
+  - apiGroups: [argoproj.io]
+    resources: [rollouts]
+    verbs: [get, list, watch, update, patch]
+  - apiGroups: [karpenter.sh]
+    resources: [nodeclaims]
+    verbs: [get, list, watch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: edit-debug-flags-v
 rules:
-- apiGroups:
-  - ""
-  resources:
-  - nodes/proxy
-  verbs:
-  - update
-- nonResourceURLs:
-  - /debug/flags/v
-  verbs:
-  - put
+  - apiGroups: ['']
+    resources: [nodes/proxy]
+    verbs: [update]
+  - nonResourceURLs: [/debug/flags/v]
+    verbs: [put]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -63,6 +59,6 @@ roleRef:
   kind: ClusterRole
   name: edit-debug-flags-v
 subjects:
-- kind: ServiceAccount
-  name: default
-  namespace: default
+  - kind: ServiceAccount
+    name: default
+    namespace: default

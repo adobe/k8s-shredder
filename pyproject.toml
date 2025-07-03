@@ -1,0 +1,10 @@
+[tool.yamlfix]
+# Preserve block scalar format and prevent conversion to quoted strings
+# This configuration helps maintain readable YAML block scalars
+
+# Don't convert multiline strings to quoted format
+# This preserves the |- and | block scalar indicators
+preserve_block_scalars = true
+
+# Maintain original formatting where possible
+preserve_formatting = true 

@@ -1,4 +1,4 @@
-.PHONY: default help format lint vet security build build-prereq push unit-test local-test local-test-karpenter local-test-node-labels ci clean e2e-tests check-license
+.PHONY: default help format lint vet security build build-prereq push unit-test local-test local-test-karpenter local-test-node-labels ci clean e2e-tests check-license helm-docs
 
 NAME ?= adobe/k8s-shredder
 K8S_SHREDDER_VERSION ?= "dev"
@@ -22,14 +22,21 @@ help: ## Print this help text
 
 # CI
 # -----------
-format: ## Format go code
+format: helm-docs ## Format go code and YAML files
 	@echo "Format go code..."
 	@go fmt ./...
 	@hash golangci-lint 2>/dev/null && { golangci-lint run --fix ./... ; } || { \
   		echo >&2 "[WARN] I require golangci-lint but it's not installed (see https://github.com/golangci/golangci-lint). Skipping golangci-lint format."; \
   	}
+	@hash yamlfix 2>/dev/null && { \
+		echo "Format YAML files..."; \
+		find . -name "*.yaml" -o -name "*.yml" | grep -v "/templates/" | xargs yamlfix 2>/dev/null || true ; \
+		echo "YAML files formatted!" ; \
+	} || { \
+		echo >&2 "[WARN] I require yamlfix but it's not installed (see https://github.com/lyz-code/yamlfix). Skipping YAML format."; \
+	}
 
-lint: ## Lint go code
+lint: ## Lint go code and YAML files
 	@hash golangci-lint 2>/dev/null && { \
 		echo "Checking go code style..."; \
 		echo "Run "make format" in case of failures!"; \
@@ -37,6 +44,36 @@ lint: ## Lint go code
 		echo "Go code style OK!" ; \
 	} || { \
 		echo >&2 "[WARN] I require golangci-lint but it's not installed (see https://github.com/golangci/golangci-lint). Skipping lint."; \
+	}
+	@hash yamlfix 2>/dev/null && { \
+		echo "Checking YAML files..."; \
+		find . -name "*.yaml" -o -name "*.yml" | grep -v "/templates/" | xargs yamlfix --check 2>/dev/null || { \
+			echo "YAML files have formatting issues. Run 'make format' to fix them."; \
+			exit 1; \
+		} ; \
+		echo "YAML files OK!" ; \
+	} || { \
+		echo >&2 "[WARN] I require yamlfix but it's not installed (see https://github.com/lyz-code/yamlfix). Skipping YAML lint."; \
+	}
+	@hash kubeconform 2>/dev/null && { \
+		echo "Validating Kubernetes manifests with kubeconform..."; \
+		find internal/testing -name "*.yaml" -o -name "*.yml" | xargs kubeconform -strict -skip CustomResourceDefinition,EC2NodeClass,NodePool,Rollout,Cluster || { \
+			echo "Kubeconform found schema errors. Please fix them."; \
+			exit 1; \
+		} ; \
+		echo "Kubeconform validation OK!" ; \
+	} || { \
+		echo >&2 "[WARN] I require kubeconform but it's not installed (see https://github.com/yannh/kubeconform). Skipping kubeconform lint."; \
+	}
+	@hash helm-docs 2>/dev/null && { \
+		echo "Checking Helm documentation..."; \
+		helm-docs --chart-search-root=charts --template-files=README.md.gotmpl --dry-run >/dev/null 2>&1 || { \
+			echo "Helm documentation is out of date. Run 'make format' to update it."; \
+			exit 1; \
+		} ; \
+		echo "Helm documentation OK!" ; \
+	} || { \
+		echo >&2 "[WARN] I require helm-docs but it's not installed (see https://github.com/norwoodj/helm-docs). Skipping Helm documentation lint."; \
 	}
 
 vet: ## Vetting go code
@@ -55,6 +92,15 @@ security: ## Inspects go source code for security problems
 check-license: ## Check if all go files have the license header set
 	@echo "Checking files for license header"
 	@./internal/check_license.sh
+
+helm-docs: ## Generate Helm chart documentation
+	@hash helm-docs 2>/dev/null && { \
+		echo "Generating Helm chart documentation..."; \
+		helm-docs --chart-search-root=charts --template-files=README.md.gotmpl ; \
+		echo "Helm documentation generated!" ; \
+	} || { \
+		echo >&2 "[WARN] I require helm-docs but it's not installed (see https://github.com/norwoodj/helm-docs). Skipping documentation generation."; \
+	}
 
 build: check-license lint vet security unit-test ## Builds the local Docker container for development
 	@CGO_ENABLED=0 GOOS=linux go build \
@@ -143,4 +189,3 @@ clean: ## Clean up local testing environment
 	@echo "Removing all generated files and directories"
 	@rm -rf dist/ k8s-shredder kubeconfig ${KUBECONFIG_LOCALTEST} ${KUBECONFIG_KARPENTER} ${KUBECONFIG_NODE_LABELS}
 	@echo "Done!"
-

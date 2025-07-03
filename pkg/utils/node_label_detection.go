@@ -17,12 +17,12 @@ import (
 	"time"
 
 	"github.com/adobe/k8s-shredder/pkg/config"
+	"github.com/adobe/k8s-shredder/pkg/metrics"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"github.com/adobe/k8s-shredder/pkg/metrics"
 )
 
 // NodeLabelInfo holds information about a node that matches the label criteria

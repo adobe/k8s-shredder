@@ -33,9 +33,6 @@ else
   kubectl create namespace ns-team-k8s-shredder-test
 fi
 
-echo "KIND: setting up k8s-shredder rbac..."
-kubectl apply -f "${test_dir}/rbac.yaml"
-
 if  [[ ${ENABLE_APISERVER_DEBUG} == "true" ]]
 then
   echo -e "K8S_SHREDDER: Enable debug logging on apiserver"
@@ -119,8 +116,25 @@ echo "KARPENTER: Mock Karpenter CRDs created for testing purposes"
 echo "KARPENTER: Creating mock NodeClaims for testing k8s-shredder drift detection..."
 # We'll create mock NodeClaims in the cluster upgrade script
 
-echo "KIND: deploying k8s-shredder..."
-kubectl apply -f "${test_dir}/k8s-shredder-karpenter.yaml"
+echo "KIND: deploying k8s-shredder using Helm chart with Karpenter drift detection..."
+# Use Helm to deploy k8s-shredder with Karpenter drift detection enabled
+helm install k8s-shredder "${test_dir}/../../charts/k8s-shredder" \
+  --namespace kube-system \
+  --set image.registry=adobe/k8s-shredder \
+  --set image.tag="${K8S_SHREDDER_VERSION}" \
+  --set image.pullPolicy=Never \
+  --set shredder.EvictionLoopInterval=30s \
+  --set shredder.ParkedNodeTTL=2m \
+  --set shredder.RollingRestartThreshold=0.5 \
+  --set shredder.EnableKarpenterDriftDetection=true \
+  --set shredder.EnableNodeLabelDetection=false \
+  --set logLevel=debug \
+  --set logFormat=text \
+  --set dryRun=false \
+  --set service.create=true \
+  --set service.type=ClusterIP \
+  --set service.port=8080 \
+  --set service.targetPort=metrics
 
 echo "KIND: deploying prometheus..."
 kubectl apply -f "${test_dir}/prometheus_stuffs_karpenter.yaml"
@@ -146,7 +160,7 @@ while [[  ${status} == *"False"* || -z ${status} ]]; do
   if [[ ${retry_count} == 600 ]]; then echo "Timeout exceeded!" && exit 1; fi
   # shellcheck disable=SC2059
   printf "\b${sp:i++%${#sp}:1}" && sleep 0.5;
-  status=$(kubectl get pods -n kube-system -l app=k8s-shredder -o json | \
+  status=$(kubectl get pods -n kube-system -l app.kubernetes.io/name=k8s-shredder -o json | \
         jq '.items[].status.conditions[] | select(.type=="Ready")| .status' 2> /dev/null)
   retry_count=$((retry_count+1))
 done
@@ -164,7 +178,7 @@ while [[ $(kubectl get pdb -n ns-team-k8s-shredder-test test-app-argo-rollout \
 done
 
 echo ""
-kubectl logs -l app=k8s-shredder -n kube-system
+kubectl logs -l app.kubernetes.io/name=k8s-shredder -n kube-system
 
 echo "K8S_SHREDDER: waiting for prometheus deployment to become ready!"
 retry_count=0
@@ -184,7 +198,7 @@ kubectl port-forward -n kube-system svc/k8s-shredder --kubeconfig=${KUBECONFIG_F
 It can take few minutes before seeing k8s-shredder metrics..."
 
 echo -e "K8S_SHREDDER: You can access k8s-shredder logs by running
-kubectl logs -n kube-system -l app=k8s-shredder --kubeconfig=${KUBECONFIG_FILE} \n"
+kubectl logs -n kube-system -l app.kubernetes.io/name=k8s-shredder --kubeconfig=${KUBECONFIG_FILE} \n"
 
 echo -e "K8S_SHREDDER: You can access prometheus metrics at http://localhost:1234 after running
 kubectl port-forward -n kube-system svc/prometheus --kubeconfig=${KUBECONFIG_FILE} 1234:9090\n"

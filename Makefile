@@ -113,7 +113,7 @@ build: check-license lint vet security unit-test ## Builds the local Docker cont
 local-test: build ## Test docker image in a kind cluster (with Karpenter drift and node label detection disabled)
 	@hash kind 2>/dev/null && { \
 		echo "Test docker image in a kind cluster..."; \
-		./internal/testing/local_env_prep.sh "${K8S_SHREDDER_VERSION}" "${KINDNODE_VERSION}" "${TEST_CLUSTERNAME}" "${KUBECONFIG_LOCALTEST}" && \
+		./internal/testing/local_env_prep_helm.sh "${K8S_SHREDDER_VERSION}" "${KINDNODE_VERSION}" "${TEST_CLUSTERNAME}" "${KUBECONFIG_LOCALTEST}" && \
 		./internal/testing/cluster_upgrade.sh "${TEST_CLUSTERNAME}" "${KUBECONFIG_LOCALTEST}" || \
 		exit 1; \
 	} || { \
@@ -123,7 +123,7 @@ local-test: build ## Test docker image in a kind cluster (with Karpenter drift a
 local-test-karpenter: build ## Test docker image in a kind cluster with Karpenter and drift detection enabled
 	@hash kind 2>/dev/null && { \
 		echo "Test docker image in a kind cluster with Karpenter..."; \
-		./internal/testing/local_env_prep_karpenter.sh "${K8S_SHREDDER_VERSION}" "${KINDNODE_VERSION}" "${TEST_CLUSTERNAME_KARPENTER}" "${KUBECONFIG_KARPENTER}" && \
+		./internal/testing/local_env_prep_karpenter_helm.sh "${K8S_SHREDDER_VERSION}" "${KINDNODE_VERSION}" "${TEST_CLUSTERNAME_KARPENTER}" "${KUBECONFIG_KARPENTER}" && \
 		./internal/testing/cluster_upgrade_karpenter.sh "${TEST_CLUSTERNAME_KARPENTER}" "${KUBECONFIG_KARPENTER}" || \
 		exit 1; \
 	} || { \
@@ -133,7 +133,7 @@ local-test-karpenter: build ## Test docker image in a kind cluster with Karpente
 local-test-node-labels: build ## Test docker image in a kind cluster with node label detection enabled
 	@hash kind 2>/dev/null && { \
 		echo "Test docker image in a kind cluster with node label detection..."; \
-		./internal/testing/local_env_prep_node_labels.sh "${K8S_SHREDDER_VERSION}" "${KINDNODE_VERSION}" "${TEST_CLUSTERNAME_NODE_LABELS}" "${KUBECONFIG_NODE_LABELS}" && \
+		./internal/testing/local_env_prep_node_labels_helm.sh "${K8S_SHREDDER_VERSION}" "${KINDNODE_VERSION}" "${TEST_CLUSTERNAME_NODE_LABELS}" "${KUBECONFIG_NODE_LABELS}" && \
 		./internal/testing/cluster_upgrade_node_labels.sh "${TEST_CLUSTERNAME_NODE_LABELS}" "${KUBECONFIG_NODE_LABELS}" || \
 		exit 1; \
 	} || { \
@@ -163,7 +163,7 @@ e2e-tests:  ## Run e2e tests for k8s-shredder deployed in a local kind cluster
 .PHONY: demo.prep demo.run demo.rollback
 demo.prep: build ## Setup demo cluster
 	echo "Setup demo cluster..."
-	./internal/testing/local_env_prep.sh "${K8S_SHREDDER_VERSION}" "${KINDNODE_VERSION}" "${TEST_CLUSTERNAME}"
+	./internal/testing/local_env_prep_helm.sh "${K8S_SHREDDER_VERSION}" "${KINDNODE_VERSION}" "${TEST_CLUSTERNAME}"
 
 demo.run: ## Run demo
 	./internal/testing/cluster_upgrade.sh "${TEST_CLUSTERNAME}"

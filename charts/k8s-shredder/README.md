@@ -1,6 +1,6 @@
 # k8s-shredder
 
-![Version: 0.2.3](https://img.shields.io/badge/Version-0.2.3-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.3.1](https://img.shields.io/badge/AppVersion-v0.3.1-informational?style=flat-square)
+![Version: 0.2.4](https://img.shields.io/badge/Version-0.2.4-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.3.1](https://img.shields.io/badge/AppVersion-v0.3.1-informational?style=flat-square)
 
 a novel way of dealing with kubernetes nodes blocked from draining
 
@@ -52,6 +52,13 @@ a novel way of dealing with kubernetes nodes blocked from draining
 | resources.requests.cpu | string | `"250m"` | CPU cores requested for the container (guaranteed allocation) |
 | resources.requests.memory | string | `"250Mi"` | Memory requested for the container (guaranteed allocation) |
 | securityContext | object | `{}` | Security context applied to the k8s-shredder container |
+| service | object | `{"annotations":{},"create":false,"labels":{},"port":8080,"targetPort":"metrics","type":"ClusterIP"}` | Kubernetes service configuration |
+| service.annotations | object | `{}` | Additional annotations for the service |
+| service.create | bool | `false` | Create a service for k8s-shredder metrics endpoint |
+| service.labels | object | `{}` | Additional labels for the service |
+| service.port | int | `8080` | Service port for metrics endpoint |
+| service.targetPort | string | `"metrics"` | Target port for metrics endpoint |
+| service.type | string | `"ClusterIP"` | Service type (ClusterIP, NodePort, LoadBalancer) |
 | serviceAccount | object | `{"annotations":{},"create":true,"name":"k8s-shredder"}` | Kubernetes service account configuration |
 | serviceAccount.annotations | object | `{}` | Additional annotations for the service account (useful for IAM roles, etc.) |
 | serviceAccount.create | bool | `true` | Create a service account for k8s-shredder |

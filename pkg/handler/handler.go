@@ -198,6 +198,31 @@ func (h *Handler) processNode(node v1.Node, rr chan *controllerObject) error {
 	if time.Now().UTC().After(expiresOn) {
 		h.logger.Infof("Force evicting pods from expired parked node %s", node.Name)
 
+		// Perform EvictionSafetyCheck if enabled
+		if h.appContext.Config.EvictionSafetyCheck {
+			h.logger.Debugf("Performing eviction safety check for node %s", node.Name)
+
+			safeToEvict, err := utils.CheckPodParkingSafety(h.appContext.Context, h.appContext.K8sClient, node.Name, h.appContext.Config, h.logger)
+			if err != nil {
+				h.logger.WithError(err).Errorf("Failed to perform eviction safety check for node %s, proceeding with force eviction", node.Name)
+				metrics.ShredderErrorsTotal.Inc()
+			} else if !safeToEvict {
+				h.logger.Warnf("Eviction safety check failed for node %s - pods missing required parking labels, unparking node instead of force eviction", node.Name)
+
+				err = utils.UnparkNode(h.appContext.Context, h.appContext.K8sClient, node.Name, h.appContext.Config, h.appContext.IsDryRun(), h.logger)
+				if err != nil {
+					h.logger.WithError(err).Errorf("Failed to unpark node %s after safety check failure", node.Name)
+					metrics.ShredderErrorsTotal.Inc()
+					return err
+				}
+
+				h.logger.Infof("Successfully unparked node %s after eviction safety check failure", node.Name)
+				return nil
+			} else {
+				h.logger.Debugf("Eviction safety check passed for node %s, proceeding with force eviction", node.Name)
+			}
+		}
+
 		deleteOptions.GracePeriodSeconds = ptr.To[int64](0)
 
 		for _, pod := range podList {

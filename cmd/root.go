@@ -122,6 +122,9 @@ func discoverConfig() {
 	viper.SetDefault("ParkedNodeTaint", "shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule")
 	viper.SetDefault("EnableNodeLabelDetection", false)
 	viper.SetDefault("NodeLabelsToDetect", []string{})
+	viper.SetDefault("MaxParkedNodes", 0)
+	viper.SetDefault("ExtraParkingLabels", map[string]string{})
+	viper.SetDefault("EvictionSafetyCheck", true)
 
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -142,6 +145,13 @@ func parseConfig() {
 	if err != nil {
 		log.Fatalf("Failed to parse configuration: %s", err)
 	}
+
+	// Validate MaxParkedNodes configuration
+	if cfg.MaxParkedNodes < 0 {
+		log.WithField("MaxParkedNodes", cfg.MaxParkedNodes).Warn("MaxParkedNodes is negative, treating as 0 (no limit)")
+		cfg.MaxParkedNodes = 0
+	}
+
 	log.WithFields(log.Fields{
 		"EvictionLoopInterval":               cfg.EvictionLoopInterval.String(),
 		"ParkedNodeTTL":                      cfg.ParkedNodeTTL.String(),
@@ -159,6 +169,9 @@ func parseConfig() {
 		"ParkedNodeTaint":                    cfg.ParkedNodeTaint,
 		"EnableNodeLabelDetection":           cfg.EnableNodeLabelDetection,
 		"NodeLabelsToDetect":                 cfg.NodeLabelsToDetect,
+		"MaxParkedNodes":                     cfg.MaxParkedNodes,
+		"ExtraParkingLabels":                 cfg.ExtraParkingLabels,
+		"EvictionSafetyCheck":                cfg.EvictionSafetyCheck,
 	}).Info("Loaded configuration")
 }
 

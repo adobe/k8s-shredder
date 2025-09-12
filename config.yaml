@@ -25,7 +25,18 @@ EnableKarpenterDriftDetection: false  # Controls whether to scan for drifted Kar
 # Node label detection
 EnableNodeLabelDetection: false  # Controls whether to scan for nodes with specific labels and automatically park them
 NodeLabelsToDetect: []  # List of node labels to detect. Supports both key-only and key=value formats
-# Examples:
-# - "maintenance"  # Matches any node with the "maintenance" label (any value)
-# - "upgrade=required"               # Matches nodes with label "upgrade" set to "required"
-# - "node.example.com/park"  # Matches any node with the "node.example.com/park" label
+  # Examples:
+  # - "maintenance"  # Matches any node with the "maintenance" label (any value)
+  # - "upgrade=required"               # Matches nodes with label "upgrade" set to "required"
+  # - "node.example.com/park"  # Matches any node with the "node.example.com/park" label
+
+# Parking limits
+MaxParkedNodes: 0  # Maximum number of nodes that can be parked simultaneously. Set to 0 (default) for no limit.
+
+# Extra labels to apply to parked nodes and pods
+# ExtraParkingLabels:  # (optional) Additional labels to apply to nodes and pods during parking
+#   example.com/owner: "infrastructure"
+#   example.com/maintenance: "true"
+
+# Safety settings
+EvictionSafetyCheck: true  # Controls whether to perform safety checks before force eviction. If true, nodes will be unparked if pods don't have required parking labels.

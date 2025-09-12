@@ -54,7 +54,7 @@ helm install k8s-shredder "${test_dir}/../../charts/k8s-shredder" \
   --set shredder.RollingRestartThreshold=0.5 \
   --set shredder.EnableKarpenterDriftDetection=false \
   --set shredder.EnableNodeLabelDetection=false \
-  --set logLevel=info \
+  --set logLevel=debug \
   --set logFormat=text \
   --set dryRun=false \
   --set service.create=true \

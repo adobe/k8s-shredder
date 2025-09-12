@@ -60,7 +60,7 @@ helm install k8s-shredder "${test_dir}/../../charts/k8s-shredder" \
   --set shredder.NodeLabelsToDetect[0]="test-label" \
   --set shredder.NodeLabelsToDetect[1]="maintenance=scheduled" \
   --set shredder.NodeLabelsToDetect[2]="node.test.io/park" \
-  --set logLevel=info \
+  --set logLevel=debug \
   --set logFormat=text \
   --set dryRun=false \
   --set service.create=true \

@@ -80,6 +80,7 @@ data:
     ParkedNodeTaint: "shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule"
     EnableNodeLabelDetection: false
     NodeLabelsToDetect: []
+    MaxParkedNodes: 0
 ---
 apiVersion: v1
 kind: Service

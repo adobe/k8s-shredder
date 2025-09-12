@@ -155,8 +155,20 @@ func ParkNodesWithLabels(ctx context.Context, k8sClient kubernetes.Interface, ma
 
 	logger.WithField("nodesToPark", len(nodesToPark)).Info("Converted labeled nodes to parking list")
 
+	// Apply MaxParkedNodes limit if configured
+	limitedNodes, err := LimitNodesToPark(ctx, k8sClient, nodesToPark, cfg.MaxParkedNodes, cfg.UpgradeStatusLabel, logger)
+	if err != nil {
+		logger.WithError(err).Error("Failed to apply MaxParkedNodes limit")
+		return errors.Wrap(err, "failed to apply MaxParkedNodes limit")
+	}
+
+	if len(limitedNodes) == 0 {
+		logger.Info("No nodes to park after applying MaxParkedNodes limit")
+		return nil
+	}
+
 	// Use the common parking function
-	return ParkNodes(ctx, k8sClient, nodesToPark, cfg, dryRun, "node-labels", logger)
+	return ParkNodes(ctx, k8sClient, limitedNodes, cfg, dryRun, "node-labels", logger)
 }
 
 // ProcessNodesWithLabels is the main function that combines finding nodes with specific labels and parking them

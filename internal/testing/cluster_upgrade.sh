@@ -5,20 +5,10 @@ K8S_CLUSTER_NAME=$1
 KUBECONFIG_FILE=${2:-kubeconfig}
 
 echo "K8S_SHREDDER: Simulating cluster upgrade..."
-echo "K8S_SHREDDER: Cordoning and labelling k8s-shredder-worker as parked with a TTL of 1 minute!"
-kubectl cordon "${K8S_CLUSTER_NAME}-worker" --kubeconfig=${KUBECONFIG_FILE}
-kubectl label node "${K8S_CLUSTER_NAME}-worker" --kubeconfig=${KUBECONFIG_FILE} shredder.ethos.adobe.net/upgrade-status=parked --overwrite=true
+echo "K8S_SHREDDER: Parking k8s-shredder-worker with proper pod labeling and a TTL of 1 minute!"
 
-# date is not a bash builtin. It is a system utility and that is something on which OSX and Linux differ.
-# OSX uses BSD tools while Linux uses GNU tools. They are similar but not the same.
-if [[ "$(uname)" = Linux ]]
-then
-  EXPIRES_ON=$(date -d '+1 minutes' +"%s".000)
-else
-  EXPIRES_ON=$(date -v '+1M' -u +'%s'.000)
-fi
-
-kubectl label node "${K8S_CLUSTER_NAME}-worker" --kubeconfig=${KUBECONFIG_FILE} --overwrite shredder.ethos.adobe.net/parked-node-expires-on="${EXPIRES_ON}"
+# Use the park-node binary to properly park the node (labels both node and pods)
+./park-node -node "${K8S_CLUSTER_NAME}-worker" -park-kubeconfig "${KUBECONFIG_FILE}"
 
 if [[ ${WAIT_FOR_PODS:-false} == "true" ]]
 then

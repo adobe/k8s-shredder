@@ -5,6 +5,8 @@ image:
   registry: ghcr.io/adobe/k8s-shredder
   # -- Image pull policy - IfNotPresent, Always, or Never
   pullPolicy: IfNotPresent
+  # -- Image tag to use
+  tag: latest
 # -- Number of k8s-shredder pods to run
 replicaCount: 1
 # -- Deployment strategy for rolling updates (e.g., RollingUpdate, Recreate)

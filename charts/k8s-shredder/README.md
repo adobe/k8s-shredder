@@ -1,6 +1,6 @@
 # k8s-shredder
 
-![Version: 0.2.5](https://img.shields.io/badge/Version-0.2.5-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.3.1](https://img.shields.io/badge/AppVersion-v0.3.1-informational?style=flat-square)
+![Version: 0.2.5](https://img.shields.io/badge/Version-0.2.5-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.3.5](https://img.shields.io/badge/AppVersion-v0.3.5-informational?style=flat-square)
 
 a novel way of dealing with kubernetes nodes blocked from draining
 
@@ -23,9 +23,10 @@ a novel way of dealing with kubernetes nodes blocked from draining
 | dryRun | bool | `false` | Enable dry-run mode - when true, k8s-shredder will log actions but not execute them |
 | environmentVars | list | `[]` | Additional environment variables to set in the container |
 | fullnameOverride | string | `""` | Override the full name used for resources |
-| image | object | `{"pullPolicy":"IfNotPresent","registry":"ghcr.io/adobe/k8s-shredder"}` | Container image configuration |
+| image | object | `{"pullPolicy":"IfNotPresent","registry":"ghcr.io/adobe/k8s-shredder","tag":"latest"}` | Container image configuration |
 | image.pullPolicy | string | `"IfNotPresent"` | Image pull policy - IfNotPresent, Always, or Never |
 | image.registry | string | `"ghcr.io/adobe/k8s-shredder"` | Container registry where the k8s-shredder image is hosted |
+| image.tag | string | `"latest"` | Image tag to use |
 | imagePullSecrets | list | `[]` | Secrets for pulling images from private registries |
 | initContainers | list | `[]` | Init containers to run before the main k8s-shredder container starts |
 | logFormat | string | `"text"` | Log output format: text (human-readable) or json (structured logging) |

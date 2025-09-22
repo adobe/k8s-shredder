@@ -5,6 +5,8 @@ image:
   registry: ghcr.io/adobe/k8s-shredder
   # -- Image pull policy - IfNotPresent, Always, or Never
   pullPolicy: IfNotPresent
+  # -- Image tag to use
+  tag: latest
 # -- Number of k8s-shredder pods to run
 replicaCount: 1
 # -- Deployment strategy for rolling updates (e.g., RollingUpdate, Recreate)
@@ -58,6 +60,15 @@ shredder:
   EnableNodeLabelDetection: false
   # -- List of node labels to monitor for triggering shredder actions
   NodeLabelsToDetect: []
+  # -- Maximum number of nodes that can be parked simultaneously (0 = no limit)
+  MaxParkedNodes: 0
+  # -- Controls whether to perform safety checks before force eviction
+  EvictionSafetyCheck: true
+  # -- Additional labels to apply to nodes and pods during parking
+  ExtraParkingLabels: {}
+    # Example configuration:
+    # example.com/owner: "infrastructure"
+    # example.com/maintenance: "true"
 # -- RBAC (Role-Based Access Control) configuration
 rbac:
   # -- Create RBAC resources (ClusterRole, ClusterRoleBinding)

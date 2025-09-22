@@ -16,6 +16,12 @@ spec:
       labels:
         app: prometheus
     spec:
+      nodeSelector:
+        monitoring: dedicated
+      tolerations:
+        - key: monitoring
+          value: dedicated
+          effect: NoSchedule
       containers:
         - name: prometheus
           image: prom/prometheus:v2.54.1

@@ -12,5 +12,5 @@ maintainers:
   - name: sfotony
     email: gosselin@adobe.com
     url: https://adobe.com
-version: 0.2.5
-appVersion: v0.3.5
+version: 0.2.6
+appVersion: v0.3.6

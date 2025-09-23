@@ -96,7 +96,19 @@ func (h *Handler) Run() error {
 		h.logger.Debug("Karpenter drift detection is disabled")
 	}
 
-	// Second, scan for nodes with specific labels and park them (if enabled)
+	// Second, scan for disrupted Karpenter node claims and label their nodes (if enabled)
+	if h.appContext.Config.EnableKarpenterDisruptionDetection {
+		err := utils.ProcessDisruptedKarpenterNodes(h.appContext.Context, h.appContext, h.logger)
+		if err != nil {
+			h.logger.WithError(err).Warn("Failed to process disrupted Karpenter nodes, continuing with normal eviction loop")
+			metrics.ShredderErrorsTotal.Inc()
+			// We don't return here because we want to continue with the normal eviction loop even if Karpenter disruption detection fails
+		}
+	} else {
+		h.logger.Debug("Karpenter disruption detection is disabled")
+	}
+
+	// Third, scan for nodes with specific labels and park them (if enabled)
 	if h.appContext.Config.EnableNodeLabelDetection {
 		err := utils.ProcessNodesWithLabels(h.appContext.Context, h.appContext, h.logger)
 		if err != nil {

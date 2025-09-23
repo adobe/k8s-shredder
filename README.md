@@ -53,6 +53,7 @@ The following options can be used to customize the k8s-shredder controller:
 | ToBeDeletedTaint                   | "ToBeDeletedByClusterAutoscaler"                            | Node taint used for skipping a subset of parked nodes that are already handled by cluster-autoscaler |
 | ArgoRolloutsAPIVersion             | "v1alpha1"                                                  | API version from `argoproj.io` API group to be used while handling Argo Rollouts objects             |
 | EnableKarpenterDriftDetection      | false                                                       | Controls whether to scan for drifted Karpenter NodeClaims and automatically label their nodes        |
+| EnableKarpenterDisruptionDetection | false                                                       | Controls whether to scan for disrupted Karpenter NodeClaims and automatically label their nodes      |
 | ParkedByLabel                      | "shredder.ethos.adobe.net/parked-by"                        | Label used to identify which component parked the node                                               |
 | ParkedNodeTaint                    | "shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule" | Taint to apply to parked nodes in format key=value:effect                                            |
 | EnableNodeLabelDetection           | false                                                       | Controls whether to scan for nodes with specific labels and automatically park them                  |
@@ -88,6 +89,24 @@ k8s-shredder includes an optional feature for automatic detection of drifted Kar
    - **Tainting** the nodes with the configured `ParkedNodeTaint`
 
 This integration allows k8s-shredder to automatically handle node lifecycle management for clusters using Karpenter, ensuring that drifted nodes are properly marked for eviction and eventual replacement.
+
+#### Karpenter Disruption Detection
+
+k8s-shredder includes an optional feature for automatic detection of disrupted Karpenter NodeClaims. This feature is disabled by default, but can be enabled by setting `EnableKarpenterDisruptionDetection` to `true`. When enabled, at the beginning of each eviction loop, the controller will:
+
+1. Scan the Kubernetes cluster for Karpenter NodeClaims that are marked as disrupted (e.g., "Disrupting", "Terminating", "Empty", "Underutilized")
+2. Identify the nodes associated with these disrupted NodeClaims
+3. Automatically process these nodes by:
+
+   - **Labeling** nodes and their non-DaemonSet pods with:
+       - `UpgradeStatusLabel` (set to "parked") 
+       - `ExpiresOnLabel` (set to current time + `ParkedNodeTTL`)
+       - `ParkedByLabel` (set to "k8s-shredder")
+       - Any labels specified in `ExtraParkingLabels`
+   - **Cordoning** the nodes to prevent new pod scheduling
+   - **Tainting** the nodes with the configured `ParkedNodeTaint`
+
+This integration ensures that nodes undergoing disruption as part of bin-packing operations have all pods evicted in a reasonable amount of time, preventing them from getting stuck due to blocking Pod Disruption Budgets (PDBs). It complements the drift detection feature by handling nodes that are actively being disrupted by Karpenter's consolidation and optimization processes.
 
 #### Labeled Node Detection
 

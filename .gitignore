@@ -7,6 +7,7 @@ kubeconfig*
 dist
 /k8s-shredder
 my-k8s-shredder-values.yaml
+/park-node
 
 # Test binary, build with `go test -c`
 *.test

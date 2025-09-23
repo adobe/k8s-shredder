@@ -1,6 +1,6 @@
 # k8s-shredder
 
-![Version: 0.2.5](https://img.shields.io/badge/Version-0.2.5-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.3.5](https://img.shields.io/badge/AppVersion-v0.3.5-informational?style=flat-square)
+![Version: 0.2.6](https://img.shields.io/badge/Version-0.2.6-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.3.6](https://img.shields.io/badge/AppVersion-v0.3.6-informational?style=flat-square)
 
 a novel way of dealing with kubernetes nodes blocked from draining
 
@@ -64,9 +64,10 @@ a novel way of dealing with kubernetes nodes blocked from draining
 | serviceAccount.annotations | object | `{}` | Additional annotations for the service account (useful for IAM roles, etc.) |
 | serviceAccount.create | bool | `true` | Create a service account for k8s-shredder |
 | serviceAccount.name | string | `"k8s-shredder"` | Name of the service account |
-| shredder | object | `{"AllowEvictionLabel":"shredder.ethos.adobe.net/allow-eviction","ArgoRolloutsAPIVersion":"v1alpha1","EnableKarpenterDriftDetection":false,"EnableNodeLabelDetection":false,"EvictionLoopInterval":"1h","EvictionSafetyCheck":true,"ExpiresOnLabel":"shredder.ethos.adobe.net/parked-node-expires-on","ExtraParkingLabels":{},"MaxParkedNodes":0,"NamespacePrefixSkipInitialEviction":"ns-ethos-","NodeLabelsToDetect":[],"ParkedByLabel":"shredder.ethos.adobe.net/parked-by","ParkedByValue":"k8s-shredder","ParkedNodeTTL":"168h","ParkedNodeTaint":"shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule","RestartedAtAnnotation":"shredder.ethos.adobe.net/restartedAt","RollingRestartThreshold":0.1,"ToBeDeletedTaint":"ToBeDeletedByClusterAutoscaler","UpgradeStatusLabel":"shredder.ethos.adobe.net/upgrade-status"}` | Core k8s-shredder configuration |
+| shredder | object | `{"AllowEvictionLabel":"shredder.ethos.adobe.net/allow-eviction","ArgoRolloutsAPIVersion":"v1alpha1","EnableKarpenterDisruptionDetection":false,"EnableKarpenterDriftDetection":false,"EnableNodeLabelDetection":false,"EvictionLoopInterval":"1h","EvictionSafetyCheck":true,"ExpiresOnLabel":"shredder.ethos.adobe.net/parked-node-expires-on","ExtraParkingLabels":{},"MaxParkedNodes":0,"NamespacePrefixSkipInitialEviction":"ns-ethos-","NodeLabelsToDetect":[],"ParkedByLabel":"shredder.ethos.adobe.net/parked-by","ParkedByValue":"k8s-shredder","ParkedNodeTTL":"168h","ParkedNodeTaint":"shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule","ParkingReasonLabel":"shredder.ethos.adobe.net/parked-reason","RestartedAtAnnotation":"shredder.ethos.adobe.net/restartedAt","RollingRestartThreshold":0.1,"ToBeDeletedTaint":"ToBeDeletedByClusterAutoscaler","UpgradeStatusLabel":"shredder.ethos.adobe.net/upgrade-status"}` | Core k8s-shredder configuration |
 | shredder.AllowEvictionLabel | string | `"shredder.ethos.adobe.net/allow-eviction"` | Label to explicitly allow eviction on specific resources |
 | shredder.ArgoRolloutsAPIVersion | string | `"v1alpha1"` | API version for Argo Rollouts integration |
+| shredder.EnableKarpenterDisruptionDetection | bool | `false` | Enable Karpenter disruption detection for node lifecycle management |
 | shredder.EnableKarpenterDriftDetection | bool | `false` | Enable Karpenter drift detection for node lifecycle management |
 | shredder.EnableNodeLabelDetection | bool | `false` | Enable detection of nodes based on specific labels |
 | shredder.EvictionLoopInterval | string | `"1h"` | How often to run the main eviction loop |
@@ -80,6 +81,7 @@ a novel way of dealing with kubernetes nodes blocked from draining
 | shredder.ParkedByValue | string | `"k8s-shredder"` | Value set in the ParkedByLabel to identify k8s-shredder as the parking agent |
 | shredder.ParkedNodeTTL | string | `"168h"` | How long parked nodes should remain before being eligible for deletion (7 days default) |
 | shredder.ParkedNodeTaint | string | `"shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule"` | Taint applied to parked nodes to prevent new pod scheduling |
+| shredder.ParkingReasonLabel | string | `"shredder.ethos.adobe.net/parked-reason"` | Label used to track why a node or pod was parked |
 | shredder.RestartedAtAnnotation | string | `"shredder.ethos.adobe.net/restartedAt"` | Annotation to track when a workload was last restarted |
 | shredder.RollingRestartThreshold | float | `0.1` | Maximum percentage of nodes that can be restarted simultaneously during rolling restarts |
 | shredder.ToBeDeletedTaint | string | `"ToBeDeletedByClusterAutoscaler"` | Taint indicating nodes scheduled for deletion by cluster autoscaler |

@@ -124,15 +124,16 @@ local-test: build ## Test docker image in a kind cluster (with Karpenter drift a
 		echo >&2 "[WARN] I require kind but it's not installed(see https://kind.sigs.k8s.io). Assuming a cluster is already accessible."; \
 	}
 
-local-test-karpenter: build ## Test docker image in a kind cluster with Karpenter and drift detection enabled
+local-test-karpenter: build ## Test docker image in a kind cluster with Karpenter drift and disruption detection enabled
 	@hash kind 2>/dev/null && { \
-		echo "Test docker image in a kind cluster with Karpenter..."; \
+		echo "Test docker image in a kind cluster with Karpenter drift and disruption detection..."; \
 		./internal/testing/local_env_prep_karpenter_helm.sh "${K8S_SHREDDER_VERSION}" "${KINDNODE_VERSION}" "${TEST_CLUSTERNAME_KARPENTER}" "${KUBECONFIG_KARPENTER}" && \
 		./internal/testing/cluster_upgrade_karpenter.sh "${TEST_CLUSTERNAME_KARPENTER}" "${KUBECONFIG_KARPENTER}" || \
 		exit 1; \
 	} || { \
 		echo >&2 "[WARN] I require kind but it's not installed(see https://kind.sigs.k8s.io). Assuming a cluster is already accessible."; \
 	}
+
 
 local-test-node-labels: build ## Test docker image in a kind cluster with node label detection enabled
 	@hash kind 2>/dev/null && { \

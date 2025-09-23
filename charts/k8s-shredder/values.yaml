@@ -50,6 +50,8 @@ shredder:
   ArgoRolloutsAPIVersion: v1alpha1
   # -- Enable Karpenter drift detection for node lifecycle management
   EnableKarpenterDriftDetection: false
+  # -- Enable Karpenter disruption detection for node lifecycle management
+  EnableKarpenterDisruptionDetection: false
   # -- Label to track which component parked a node
   ParkedByLabel: shredder.ethos.adobe.net/parked-by
   # -- Value set in the ParkedByLabel to identify k8s-shredder as the parking agent
@@ -64,6 +66,8 @@ shredder:
   MaxParkedNodes: 0
   # -- Controls whether to perform safety checks before force eviction
   EvictionSafetyCheck: true
+  # -- Label used to track why a node or pod was parked
+  ParkingReasonLabel: shredder.ethos.adobe.net/parked-reason
   # -- Additional labels to apply to nodes and pods during parking
   ExtraParkingLabels: {}
     # Example configuration:

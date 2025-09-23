@@ -55,4 +55,6 @@ type Config struct {
 	ExtraParkingLabels map[string]string
 	// EvictionSafetyCheck controls whether to perform safety checks before force eviction. If true, nodes will be unparked if pods don't have required parking labels.
 	EvictionSafetyCheck bool
+	// ParkingReasonLabel is the label used to track why a node or pod was parked
+	ParkingReasonLabel string
 }

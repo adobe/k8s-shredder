@@ -41,3 +41,6 @@ MaxParkedNodes: 0  # Maximum number of nodes that can be parked simultaneously. 
 
 # Safety settings
 EvictionSafetyCheck: true  # Controls whether to perform safety checks before force eviction. If true, nodes will be unparked if pods don't have required parking labels.
+
+# Parking reason tracking
+ParkingReasonLabel: shredder.ethos.adobe.net/parked-reason  # Label used to track why a node or pod was parked

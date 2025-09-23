@@ -207,6 +207,7 @@ func TestLabelDriftedNodes(t *testing.T) {
 			cfg: config.Config{
 				MaxParkedNodes:     5,
 				UpgradeStatusLabel: "upgrade-status",
+				ParkingReasonLabel: "parked-reason",
 			},
 			dryRun:      false,
 			expectError: false,
@@ -226,6 +227,7 @@ func TestLabelDriftedNodes(t *testing.T) {
 			cfg: config.Config{
 				MaxParkedNodes:     5,
 				UpgradeStatusLabel: "upgrade-status",
+				ParkingReasonLabel: "parked-reason",
 			},
 			dryRun:      false,
 			expectError: false,
@@ -245,6 +247,7 @@ func TestLabelDriftedNodes(t *testing.T) {
 			cfg: config.Config{
 				MaxParkedNodes:     5,
 				UpgradeStatusLabel: "upgrade-status",
+				ParkingReasonLabel: "parked-reason",
 			},
 			dryRun:      false,
 			expectError: false,
@@ -264,6 +267,7 @@ func TestLabelDriftedNodes(t *testing.T) {
 			cfg: config.Config{
 				MaxParkedNodes:     5,
 				UpgradeStatusLabel: "upgrade-status",
+				ParkingReasonLabel: "parked-reason",
 			},
 			dryRun:      true,
 			expectError: false,
@@ -482,6 +486,7 @@ func TestLabelDisruptedNodes(t *testing.T) {
 			cfg: config.Config{
 				MaxParkedNodes:     5,
 				UpgradeStatusLabel: "upgrade-status",
+				ParkingReasonLabel: "parked-reason",
 			},
 			dryRun:      false,
 			expectError: false,
@@ -502,6 +507,7 @@ func TestLabelDisruptedNodes(t *testing.T) {
 			cfg: config.Config{
 				MaxParkedNodes:     5,
 				UpgradeStatusLabel: "upgrade-status",
+				ParkingReasonLabel: "parked-reason",
 			},
 			dryRun:      false,
 			expectError: false,
@@ -522,6 +528,7 @@ func TestLabelDisruptedNodes(t *testing.T) {
 			cfg: config.Config{
 				MaxParkedNodes:     5,
 				UpgradeStatusLabel: "upgrade-status",
+				ParkingReasonLabel: "parked-reason",
 			},
 			dryRun:      false,
 			expectError: false,
@@ -542,6 +549,7 @@ func TestLabelDisruptedNodes(t *testing.T) {
 			cfg: config.Config{
 				MaxParkedNodes:     5,
 				UpgradeStatusLabel: "upgrade-status",
+				ParkingReasonLabel: "parked-reason",
 			},
 			dryRun:      true,
 			expectError: false,
@@ -592,6 +600,7 @@ func TestProcessDriftedKarpenterNodes(t *testing.T) {
 			appContext: &AppContext{
 				Config: config.Config{
 					UpgradeStatusLabel: "upgrade-status",
+					ParkingReasonLabel: "parked-reason",
 				},
 				K8sClient:        fake.NewSimpleClientset(),
 				DynamicK8SClient: &fakeDynamicClient{},
@@ -606,6 +615,7 @@ func TestProcessDriftedKarpenterNodes(t *testing.T) {
 				Config: config.Config{
 					UpgradeStatusLabel: "upgrade-status",
 					MaxParkedNodes:     5,
+					ParkingReasonLabel: "parked-reason",
 				},
 				K8sClient:        fake.NewSimpleClientset(),
 				DynamicK8SClient: &fakeDynamicClientWithDriftedClaims{},
@@ -619,6 +629,7 @@ func TestProcessDriftedKarpenterNodes(t *testing.T) {
 			appContext: &AppContext{
 				Config: config.Config{
 					UpgradeStatusLabel: "upgrade-status",
+					ParkingReasonLabel: "parked-reason",
 				},
 				K8sClient:        fake.NewSimpleClientset(),
 				DynamicK8SClient: &fakeDynamicClientWithError{},

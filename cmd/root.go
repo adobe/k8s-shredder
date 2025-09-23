@@ -126,6 +126,7 @@ func discoverConfig() {
 	viper.SetDefault("MaxParkedNodes", 0)
 	viper.SetDefault("ExtraParkingLabels", map[string]string{})
 	viper.SetDefault("EvictionSafetyCheck", true)
+	viper.SetDefault("ParkingReasonLabel", "shredder.ethos.adobe.net/parked-reason")
 
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -174,6 +175,7 @@ func parseConfig() {
 		"MaxParkedNodes":                     cfg.MaxParkedNodes,
 		"ExtraParkingLabels":                 cfg.ExtraParkingLabels,
 		"EvictionSafetyCheck":                cfg.EvictionSafetyCheck,
+		"ParkingReasonLabel":                 cfg.ParkingReasonLabel,
 	}).Info("Loaded configuration")
 }
 

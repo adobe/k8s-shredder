@@ -61,6 +61,7 @@ The following options can be used to customize the k8s-shredder controller:
 | MaxParkedNodes                     | 0                                                           | Maximum number of nodes that can be parked simultaneously. Set to 0 (default) for no limit.         |
 | ExtraParkingLabels                 | {}                                                          | (Optional) Map of extra labels to apply to nodes and pods during parking. Example: `{ "example.com/owner": "infrastructure" }` |
 | EvictionSafetyCheck                | true                                                        | Controls whether to perform safety checks before force eviction. If true, nodes will be unparked if pods don't have required parking labels. |
+| ParkingReasonLabel                 | "shredder.ethos.adobe.net/parked-reason"                   | Label used to track why a node or pod was parked (values: node-label, karpenter-drifted, karpenter-disrupted) |
 
 ### How it works
 
@@ -211,6 +212,32 @@ EvictionSafetyCheck: false # Disable safety checks (force eviction always procee
 
 **Logging:**
 When safety checks fail, k8s-shredder logs detailed information about which pods are missing required labels, helping operators understand why the node was unparked instead of force evicted.
+
+#### Parking Reason Tracking
+
+k8s-shredder automatically tracks why nodes and pods were parked by applying a configurable parking reason label. This feature helps operators understand the source of parking actions and enables better monitoring and debugging.
+
+**Configuration:**
+```yaml
+ParkingReasonLabel: "shredder.ethos.adobe.net/parked-reason"  # Default label name
+```
+
+**Parking Reason Values:**
+- `node-label`: Node was parked due to node label detection
+- `karpenter-drifted`: Node was parked due to Karpenter drift detection
+- `karpenter-disrupted`: Node was parked due to Karpenter disruption detection
+
+**Behavior:**
+- The parking reason label is applied to both nodes and their non-DaemonSet pods during parking
+- The label is automatically removed during the unparking process (e.g., when safety checks fail)
+- The label value corresponds to the detection method that triggered the parking action
+- This label works alongside other parking labels and doesn't interfere with existing functionality
+
+**Use cases:**
+- **Monitoring**: Track which detection method is most active in your cluster
+- **Debugging**: Understand why specific nodes were parked
+- **Automation**: Trigger different workflows based on parking reason
+- **Compliance**: Audit parking actions and their sources
 
 ## Metrics
 

@@ -25,4 +25,5 @@ data:
     NodeLabelsToDetect: {{.Values.shredder.NodeLabelsToDetect | toJson}}
     MaxParkedNodes: {{.Values.shredder.MaxParkedNodes}}
     EvictionSafetyCheck: {{.Values.shredder.EvictionSafetyCheck}}
+    ParkingReasonLabel: "{{.Values.shredder.ParkingReasonLabel}}"
     ExtraParkingLabels: {{.Values.shredder.ExtraParkingLabels | toJson}}

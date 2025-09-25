@@ -207,6 +207,7 @@ func TestLabelDriftedNodes(t *testing.T) {
 			cfg: config.Config{
 				MaxParkedNodes:     5,
 				UpgradeStatusLabel: "upgrade-status",
+				ParkingReasonLabel: "parked-reason",
 			},
 			dryRun:      false,
 			expectError: false,
@@ -226,6 +227,7 @@ func TestLabelDriftedNodes(t *testing.T) {
 			cfg: config.Config{
 				MaxParkedNodes:     5,
 				UpgradeStatusLabel: "upgrade-status",
+				ParkingReasonLabel: "parked-reason",
 			},
 			dryRun:      false,
 			expectError: false,
@@ -245,6 +247,7 @@ func TestLabelDriftedNodes(t *testing.T) {
 			cfg: config.Config{
 				MaxParkedNodes:     5,
 				UpgradeStatusLabel: "upgrade-status",
+				ParkingReasonLabel: "parked-reason",
 			},
 			dryRun:      false,
 			expectError: false,
@@ -264,6 +267,7 @@ func TestLabelDriftedNodes(t *testing.T) {
 			cfg: config.Config{
 				MaxParkedNodes:     5,
 				UpgradeStatusLabel: "upgrade-status",
+				ParkingReasonLabel: "parked-reason",
 			},
 			dryRun:      true,
 			expectError: false,
@@ -318,6 +322,271 @@ func TestKarpenterNodeClaimInfo(t *testing.T) {
 	assert.True(t, nodeClaimInfo.IsDrifted)
 }
 
+// TestIsNodeClaimDisrupted tests the isNodeClaimDisrupted function
+func TestIsNodeClaimDisrupted(t *testing.T) {
+	tests := []struct {
+		name              string
+		nodeClaim         map[string]interface{}
+		expectedDisrupted bool
+		expectedReason    string
+		expectError       bool
+		description       string
+	}{
+		{
+			name: "NodeClaim is disrupting",
+			nodeClaim: map[string]interface{}{
+				"status": map[string]interface{}{
+					"conditions": []interface{}{
+						map[string]interface{}{
+							"type":   "Disrupting",
+							"status": "True",
+						},
+					},
+				},
+			},
+			expectedDisrupted: true,
+			expectedReason:    "Disrupting",
+			expectError:       false,
+			description:       "NodeClaim with Disrupting=True condition should return true",
+		},
+		{
+			name: "NodeClaim is terminating",
+			nodeClaim: map[string]interface{}{
+				"status": map[string]interface{}{
+					"conditions": []interface{}{
+						map[string]interface{}{
+							"type":   "Terminating",
+							"status": "True",
+						},
+					},
+				},
+			},
+			expectedDisrupted: true,
+			expectedReason:    "Terminating",
+			expectError:       false,
+			description:       "NodeClaim with Terminating=True condition should return true",
+		},
+		{
+			name: "NodeClaim is empty",
+			nodeClaim: map[string]interface{}{
+				"status": map[string]interface{}{
+					"conditions": []interface{}{
+						map[string]interface{}{
+							"type":   "Empty",
+							"status": "True",
+						},
+					},
+				},
+			},
+			expectedDisrupted: true,
+			expectedReason:    "Empty",
+			expectError:       false,
+			description:       "NodeClaim with Empty=True condition should return true",
+		},
+		{
+			name: "NodeClaim is underutilized",
+			nodeClaim: map[string]interface{}{
+				"status": map[string]interface{}{
+					"conditions": []interface{}{
+						map[string]interface{}{
+							"type":   "Underutilized",
+							"status": "True",
+						},
+					},
+				},
+			},
+			expectedDisrupted: true,
+			expectedReason:    "Underutilized",
+			expectError:       false,
+			description:       "NodeClaim with Underutilized=True condition should return true",
+		},
+		{
+			name: "NodeClaim is not disrupted",
+			nodeClaim: map[string]interface{}{
+				"status": map[string]interface{}{
+					"conditions": []interface{}{
+						map[string]interface{}{
+							"type":   "Disrupting",
+							"status": "False",
+						},
+					},
+				},
+			},
+			expectedDisrupted: false,
+			expectedReason:    "",
+			expectError:       false,
+			description:       "NodeClaim with Disrupting=False condition should return false",
+		},
+		{
+			name: "NodeClaim has no disruption conditions",
+			nodeClaim: map[string]interface{}{
+				"status": map[string]interface{}{
+					"conditions": []interface{}{
+						map[string]interface{}{
+							"type":   "Ready",
+							"status": "True",
+						},
+					},
+				},
+			},
+			expectedDisrupted: false,
+			expectedReason:    "",
+			expectError:       false,
+			description:       "NodeClaim without disruption conditions should return false",
+		},
+		{
+			name: "NodeClaim has no conditions",
+			nodeClaim: map[string]interface{}{
+				"status": map[string]interface{}{},
+			},
+			expectedDisrupted: false,
+			expectedReason:    "",
+			expectError:       false,
+			description:       "NodeClaim with no conditions should return false",
+		},
+		{
+			name:              "NodeClaim has no status",
+			nodeClaim:         map[string]interface{}{},
+			expectedDisrupted: false,
+			expectedReason:    "",
+			expectError:       false,
+			description:       "NodeClaim with no status should return false",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := log.NewEntry(log.New())
+			disrupted, reason, err := isNodeClaimDisrupted(tt.nodeClaim, logger)
+
+			if tt.expectError {
+				assert.Error(t, err, tt.description)
+			} else {
+				assert.NoError(t, err, tt.description)
+				assert.Equal(t, tt.expectedDisrupted, disrupted, tt.description)
+				assert.Equal(t, tt.expectedReason, reason, tt.description)
+			}
+		})
+	}
+}
+
+// TestLabelDisruptedNodes tests the LabelDisruptedNodes function
+func TestLabelDisruptedNodes(t *testing.T) {
+	tests := []struct {
+		name                string
+		disruptedNodeClaims []KarpenterNodeClaimInfo
+		cfg                 config.Config
+		dryRun              bool
+		expectError         bool
+		description         string
+	}{
+		{
+			name:                "No disrupted node claims",
+			disruptedNodeClaims: []KarpenterNodeClaimInfo{},
+			cfg: config.Config{
+				MaxParkedNodes:     5,
+				UpgradeStatusLabel: "upgrade-status",
+				ParkingReasonLabel: "parked-reason",
+			},
+			dryRun:      false,
+			expectError: false,
+			description: "Should return nil when no disrupted node claims",
+		},
+		{
+			name: "Single disrupted node claim",
+			disruptedNodeClaims: []KarpenterNodeClaimInfo{
+				{
+					Name:             "nodeclaim-1",
+					Namespace:        "default",
+					NodeName:         "test-node",
+					ProviderID:       "aws://us-west-2a/i-1234567890abcdef0",
+					IsDisrupted:      true,
+					DisruptionReason: "Disrupting",
+				},
+			},
+			cfg: config.Config{
+				MaxParkedNodes:     5,
+				UpgradeStatusLabel: "upgrade-status",
+				ParkingReasonLabel: "parked-reason",
+			},
+			dryRun:      false,
+			expectError: false,
+			description: "Should label single disrupted node",
+		},
+		{
+			name: "Node claim without node name",
+			disruptedNodeClaims: []KarpenterNodeClaimInfo{
+				{
+					Name:             "nodeclaim-1",
+					Namespace:        "default",
+					NodeName:         "",
+					ProviderID:       "aws://us-west-2a/i-1234567890abcdef0",
+					IsDisrupted:      true,
+					DisruptionReason: "Empty",
+				},
+			},
+			cfg: config.Config{
+				MaxParkedNodes:     5,
+				UpgradeStatusLabel: "upgrade-status",
+				ParkingReasonLabel: "parked-reason",
+			},
+			dryRun:      false,
+			expectError: false,
+			description: "Should skip node claim without node name",
+		},
+		{
+			name: "Dry run mode",
+			disruptedNodeClaims: []KarpenterNodeClaimInfo{
+				{
+					Name:             "nodeclaim-1",
+					Namespace:        "default",
+					NodeName:         "test-node",
+					ProviderID:       "aws://us-west-2a/i-1234567890abcdef0",
+					IsDisrupted:      true,
+					DisruptionReason: "Underutilized",
+				},
+			},
+			cfg: config.Config{
+				MaxParkedNodes:     5,
+				UpgradeStatusLabel: "upgrade-status",
+				ParkingReasonLabel: "parked-reason",
+			},
+			dryRun:      true,
+			expectError: false,
+			description: "Should work in dry run mode",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create fake Kubernetes client
+			fakeClient := fake.NewSimpleClientset()
+
+			// Add nodes to the fake client if they have node names
+			for _, nodeClaim := range tt.disruptedNodeClaims {
+				if nodeClaim.NodeName != "" {
+					node := &v1.Node{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: nodeClaim.NodeName,
+						},
+					}
+					_, err := fakeClient.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
+					assert.NoError(t, err)
+				}
+			}
+
+			logger := log.NewEntry(log.New())
+			err := LabelDisruptedNodes(context.Background(), fakeClient, tt.disruptedNodeClaims, tt.cfg, tt.dryRun, logger)
+
+			if tt.expectError {
+				assert.Error(t, err, tt.description)
+			} else {
+				assert.NoError(t, err, tt.description)
+			}
+		})
+	}
+}
+
 // TestProcessDriftedKarpenterNodes tests the ProcessDriftedKarpenterNodes function
 func TestProcessDriftedKarpenterNodes(t *testing.T) {
 	tests := []struct {
@@ -331,6 +600,7 @@ func TestProcessDriftedKarpenterNodes(t *testing.T) {
 			appContext: &AppContext{
 				Config: config.Config{
 					UpgradeStatusLabel: "upgrade-status",
+					ParkingReasonLabel: "parked-reason",
 				},
 				K8sClient:        fake.NewSimpleClientset(),
 				DynamicK8SClient: &fakeDynamicClient{},
@@ -345,6 +615,7 @@ func TestProcessDriftedKarpenterNodes(t *testing.T) {
 				Config: config.Config{
 					UpgradeStatusLabel: "upgrade-status",
 					MaxParkedNodes:     5,
+					ParkingReasonLabel: "parked-reason",
 				},
 				K8sClient:        fake.NewSimpleClientset(),
 				DynamicK8SClient: &fakeDynamicClientWithDriftedClaims{},
@@ -358,6 +629,7 @@ func TestProcessDriftedKarpenterNodes(t *testing.T) {
 			appContext: &AppContext{
 				Config: config.Config{
 					UpgradeStatusLabel: "upgrade-status",
+					ParkingReasonLabel: "parked-reason",
 				},
 				K8sClient:        fake.NewSimpleClientset(),
 				DynamicK8SClient: &fakeDynamicClientWithError{},

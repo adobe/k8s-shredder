@@ -53,6 +53,7 @@ The following options can be used to customize the k8s-shredder controller:
 | ToBeDeletedTaint                   | "ToBeDeletedByClusterAutoscaler"                            | Node taint used for skipping a subset of parked nodes that are already handled by cluster-autoscaler |
 | ArgoRolloutsAPIVersion             | "v1alpha1"                                                  | API version from `argoproj.io` API group to be used while handling Argo Rollouts objects             |
 | EnableKarpenterDriftDetection      | false                                                       | Controls whether to scan for drifted Karpenter NodeClaims and automatically label their nodes        |
+| EnableKarpenterDisruptionDetection | false                                                       | Controls whether to scan for disrupted Karpenter NodeClaims and automatically label their nodes      |
 | ParkedByLabel                      | "shredder.ethos.adobe.net/parked-by"                        | Label used to identify which component parked the node                                               |
 | ParkedNodeTaint                    | "shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule" | Taint to apply to parked nodes in format key=value:effect                                            |
 | EnableNodeLabelDetection           | false                                                       | Controls whether to scan for nodes with specific labels and automatically park them                  |
@@ -60,6 +61,7 @@ The following options can be used to customize the k8s-shredder controller:
 | MaxParkedNodes                     | 0                                                           | Maximum number of nodes that can be parked simultaneously. Set to 0 (default) for no limit.         |
 | ExtraParkingLabels                 | {}                                                          | (Optional) Map of extra labels to apply to nodes and pods during parking. Example: `{ "example.com/owner": "infrastructure" }` |
 | EvictionSafetyCheck                | true                                                        | Controls whether to perform safety checks before force eviction. If true, nodes will be unparked if pods don't have required parking labels. |
+| ParkingReasonLabel                 | "shredder.ethos.adobe.net/parked-reason"                   | Label used to track why a node or pod was parked (values: node-label, karpenter-drifted, karpenter-disrupted) |
 
 ### How it works
 
@@ -88,6 +90,24 @@ k8s-shredder includes an optional feature for automatic detection of drifted Kar
    - **Tainting** the nodes with the configured `ParkedNodeTaint`
 
 This integration allows k8s-shredder to automatically handle node lifecycle management for clusters using Karpenter, ensuring that drifted nodes are properly marked for eviction and eventual replacement.
+
+#### Karpenter Disruption Detection
+
+k8s-shredder includes an optional feature for automatic detection of disrupted Karpenter NodeClaims. This feature is disabled by default, but can be enabled by setting `EnableKarpenterDisruptionDetection` to `true`. When enabled, at the beginning of each eviction loop, the controller will:
+
+1. Scan the Kubernetes cluster for Karpenter NodeClaims that are marked as disrupted (e.g., "Disrupting", "Terminating", "Empty", "Underutilized")
+2. Identify the nodes associated with these disrupted NodeClaims
+3. Automatically process these nodes by:
+
+   - **Labeling** nodes and their non-DaemonSet pods with:
+       - `UpgradeStatusLabel` (set to "parked") 
+       - `ExpiresOnLabel` (set to current time + `ParkedNodeTTL`)
+       - `ParkedByLabel` (set to "k8s-shredder")
+       - Any labels specified in `ExtraParkingLabels`
+   - **Cordoning** the nodes to prevent new pod scheduling
+   - **Tainting** the nodes with the configured `ParkedNodeTaint`
+
+This integration ensures that nodes undergoing disruption as part of bin-packing operations have all pods evicted in a reasonable amount of time, preventing them from getting stuck due to blocking Pod Disruption Budgets (PDBs). It complements the drift detection feature by handling nodes that are actively being disrupted by Karpenter's consolidation and optimization processes.
 
 #### Labeled Node Detection
 
@@ -192,6 +212,32 @@ EvictionSafetyCheck: false # Disable safety checks (force eviction always procee
 
 **Logging:**
 When safety checks fail, k8s-shredder logs detailed information about which pods are missing required labels, helping operators understand why the node was unparked instead of force evicted.
+
+#### Parking Reason Tracking
+
+k8s-shredder automatically tracks why nodes and pods were parked by applying a configurable parking reason label. This feature helps operators understand the source of parking actions and enables better monitoring and debugging.
+
+**Configuration:**
+```yaml
+ParkingReasonLabel: "shredder.ethos.adobe.net/parked-reason"  # Default label name
+```
+
+**Parking Reason Values:**
+- `node-label`: Node was parked due to node label detection
+- `karpenter-drifted`: Node was parked due to Karpenter drift detection
+- `karpenter-disrupted`: Node was parked due to Karpenter disruption detection
+
+**Behavior:**
+- The parking reason label is applied to both nodes and their non-DaemonSet pods during parking
+- The label is automatically removed during the unparking process (e.g., when safety checks fail)
+- The label value corresponds to the detection method that triggered the parking action
+- This label works alongside other parking labels and doesn't interfere with existing functionality
+
+**Use cases:**
+- **Monitoring**: Track which detection method is most active in your cluster
+- **Debugging**: Understand why specific nodes were parked
+- **Automation**: Trigger different workflows based on parking reason
+- **Compliance**: Audit parking actions and their sources
 
 ## Metrics
 

@@ -37,6 +37,8 @@ type Config struct {
 	ArgoRolloutsAPIVersion string
 	// EnableKarpenterDriftDetection controls whether to scan for drifted Karpenter NodeClaims and automatically label their nodes
 	EnableKarpenterDriftDetection bool
+	// EnableKarpenterDisruptionDetection controls whether to scan for disrupted Karpenter NodeClaims and automatically label their nodes
+	EnableKarpenterDisruptionDetection bool
 	// ParkedByLabel is used for identifying which component parked the node
 	ParkedByLabel string
 	// ParkedByValue is the value to set for the ParkedByLabel
@@ -53,4 +55,6 @@ type Config struct {
 	ExtraParkingLabels map[string]string
 	// EvictionSafetyCheck controls whether to perform safety checks before force eviction. If true, nodes will be unparked if pods don't have required parking labels.
 	EvictionSafetyCheck bool
+	// ParkingReasonLabel is the label used to track why a node or pod was parked
+	ParkingReasonLabel string
 }

@@ -41,6 +41,7 @@ func ParkNodeForTesting(nodeName string, kubeconfigPath string) error {
 		ParkedNodeTaint:     "shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule",
 		EvictionSafetyCheck: true, // Keep safety check enabled
 		ExtraParkingLabels:  map[string]string{},
+		ParkingReasonLabel:  "shredder.ethos.adobe.net/parked-reason",
 	}
 
 	// Create logger

@@ -22,6 +22,7 @@ ParkedNodeTaint: shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule  # Ta
 ArgoRolloutsAPIVersion: v1alpha1  # API version from argoproj.io API group to be used while handling Argo Rollouts objects
 # Karpenter integration
 EnableKarpenterDriftDetection: false  # Controls whether to scan for drifted Karpenter NodeClaims and automatically label their nodes
+EnableKarpenterDisruptionDetection: false  # Controls whether to scan for disrupted Karpenter NodeClaims and automatically label their nodes
 # Node label detection
 EnableNodeLabelDetection: false  # Controls whether to scan for nodes with specific labels and automatically park them
 NodeLabelsToDetect: []  # List of node labels to detect. Supports both key-only and key=value formats
@@ -40,3 +41,6 @@ MaxParkedNodes: 0  # Maximum number of nodes that can be parked simultaneously. 
 
 # Safety settings
 EvictionSafetyCheck: true  # Controls whether to perform safety checks before force eviction. If true, nodes will be unparked if pods don't have required parking labels.
+
+# Parking reason tracking
+ParkingReasonLabel: shredder.ethos.adobe.net/parked-reason  # Label used to track why a node or pod was parked

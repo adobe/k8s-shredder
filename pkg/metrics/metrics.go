@@ -112,6 +112,14 @@ var (
 		},
 	)
 
+	// ShredderKarpenterDisruptedNodesTotal = Total number of disrupted Karpenter nodes detected
+	ShredderKarpenterDisruptedNodesTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "shredder_karpenter_disrupted_nodes_total",
+			Help: "Total number of disrupted Karpenter nodes detected",
+		},
+	)
+
 	// ShredderKarpenterNodesParkedTotal = Total number of Karpenter nodes successfully parked
 	ShredderKarpenterNodesParkedTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{

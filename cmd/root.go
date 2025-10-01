@@ -117,6 +117,7 @@ func discoverConfig() {
 	viper.SetDefault("ToBeDeletedTaint", "ToBeDeletedByClusterAutoscaler")
 	viper.SetDefault("ArgoRolloutsAPIVersion", "v1alpha1")
 	viper.SetDefault("EnableKarpenterDriftDetection", false)
+	viper.SetDefault("EnableKarpenterDisruptionDetection", false)
 	viper.SetDefault("ParkedByLabel", "shredder.ethos.adobe.net/parked-by")
 	viper.SetDefault("ParkedByValue", "k8s-shredder")
 	viper.SetDefault("ParkedNodeTaint", "shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule")
@@ -125,6 +126,7 @@ func discoverConfig() {
 	viper.SetDefault("MaxParkedNodes", 0)
 	viper.SetDefault("ExtraParkingLabels", map[string]string{})
 	viper.SetDefault("EvictionSafetyCheck", true)
+	viper.SetDefault("ParkingReasonLabel", "shredder.ethos.adobe.net/parked-reason")
 
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -164,6 +166,7 @@ func parseConfig() {
 		"ToBeDeletedTaint":                   cfg.ToBeDeletedTaint,
 		"ArgoRolloutsAPIVersion":             cfg.ArgoRolloutsAPIVersion,
 		"EnableKarpenterDriftDetection":      cfg.EnableKarpenterDriftDetection,
+		"EnableKarpenterDisruptionDetection": cfg.EnableKarpenterDisruptionDetection,
 		"ParkedByLabel":                      cfg.ParkedByLabel,
 		"ParkedByValue":                      cfg.ParkedByValue,
 		"ParkedNodeTaint":                    cfg.ParkedNodeTaint,
@@ -172,6 +175,7 @@ func parseConfig() {
 		"MaxParkedNodes":                     cfg.MaxParkedNodes,
 		"ExtraParkingLabels":                 cfg.ExtraParkingLabels,
 		"EvictionSafetyCheck":                cfg.EvictionSafetyCheck,
+		"ParkingReasonLabel":                 cfg.ParkingReasonLabel,
 	}).Info("Loaded configuration")
 }
 

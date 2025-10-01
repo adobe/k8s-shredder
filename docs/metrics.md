@@ -86,6 +86,11 @@ k8s-shredder exposes metrics in Prometheus format to help operators monitor the 
 - **Description**: Total number of drifted Karpenter nodes detected
 - **Use Case**: Monitor the volume of Karpenter drift detection activity
 
+### `shredder_karpenter_disrupted_nodes_total`
+- **Type**: Counter
+- **Description**: Total number of disrupted Karpenter nodes detected
+- **Use Case**: Monitor the volume of Karpenter disruption detection activity
+
 ### `shredder_karpenter_nodes_parked_total`
 - **Type**: Counter
 - **Description**: Total number of Karpenter nodes successfully parked

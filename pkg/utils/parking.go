@@ -42,6 +42,8 @@ type ParkingLabels struct {
 	ExpiresOnValue     string
 	ParkedByLabel      string
 	ParkedByValue      string
+	ParkingReasonLabel string
+	ParkingReasonValue string
 	ExtraLabels        map[string]string // Extra labels to apply to nodes and pods
 }
 
@@ -236,6 +238,8 @@ func labelNode(ctx context.Context, k8sClient kubernetes.Interface, nodeName str
 		"expiresOnValue":     labels.ExpiresOnValue,
 		"parkedByLabel":      labels.ParkedByLabel,
 		"parkedByValue":      labels.ParkedByValue,
+		"parkingReasonLabel": labels.ParkingReasonLabel,
+		"parkingReasonValue": labels.ParkingReasonValue,
 		"extraLabels":        labels.ExtraLabels,
 		"dryRun":             dryRun,
 	})
@@ -267,6 +271,7 @@ func labelNode(ctx context.Context, k8sClient kubernetes.Interface, nodeName str
 	node.Labels[labels.UpgradeStatusLabel] = labels.UpgradeStatusValue
 	node.Labels[labels.ExpiresOnLabel] = labels.ExpiresOnValue
 	node.Labels[labels.ParkedByLabel] = labels.ParkedByValue
+	node.Labels[labels.ParkingReasonLabel] = labels.ParkingReasonValue
 	// Apply extra labels
 	for k, v := range labels.ExtraLabels {
 		node.Labels[k] = v
@@ -299,6 +304,8 @@ func labelPod(ctx context.Context, k8sClient kubernetes.Interface, pod v1.Pod, l
 		"expiresOnValue":     labels.ExpiresOnValue,
 		"parkedByLabel":      labels.ParkedByLabel,
 		"parkedByValue":      labels.ParkedByValue,
+		"parkingReasonLabel": labels.ParkingReasonLabel,
+		"parkingReasonValue": labels.ParkingReasonValue,
 		"extraLabels":        labels.ExtraLabels,
 		"dryRun":             dryRun,
 	})
@@ -330,6 +337,7 @@ func labelPod(ctx context.Context, k8sClient kubernetes.Interface, pod v1.Pod, l
 	currentPod.Labels[labels.UpgradeStatusLabel] = labels.UpgradeStatusValue
 	currentPod.Labels[labels.ExpiresOnLabel] = labels.ExpiresOnValue
 	currentPod.Labels[labels.ParkedByLabel] = labels.ParkedByValue
+	currentPod.Labels[labels.ParkingReasonLabel] = labels.ParkingReasonValue
 	// Apply extra labels
 	for k, v := range labels.ExtraLabels {
 		currentPod.Labels[k] = v
@@ -381,6 +389,8 @@ func ParkNodes(ctx context.Context, k8sClient kubernetes.Interface, nodes []Node
 		ExpiresOnValue:     expirationUnixTime,
 		ParkedByLabel:      cfg.ParkedByLabel,
 		ParkedByValue:      cfg.ParkedByValue,
+		ParkingReasonLabel: cfg.ParkingReasonLabel,
+		ParkingReasonValue: source,
 		ExtraLabels:        cfg.ExtraParkingLabels,
 	}
 
@@ -623,6 +633,9 @@ func UnparkPod(ctx context.Context, k8sClient kubernetes.Interface, pod v1.Pod, 
 		// Remove ParkedByLabel
 		delete(podCopy.Labels, cfg.ParkedByLabel)
 
+		// Remove ParkingReasonLabel
+		delete(podCopy.Labels, cfg.ParkingReasonLabel)
+
 		// Remove ExtraParkingLabels
 		for key := range cfg.ExtraParkingLabels {
 			delete(podCopy.Labels, key)
@@ -668,6 +681,9 @@ func unparkNodeObject(ctx context.Context, k8sClient kubernetes.Interface, node 
 
 		// Remove ParkedByLabel
 		delete(nodeCopy.Labels, cfg.ParkedByLabel)
+
+		// Remove ParkingReasonLabel
+		delete(nodeCopy.Labels, cfg.ParkingReasonLabel)
 
 		// Remove ExtraParkingLabels
 		for key := range cfg.ExtraParkingLabels {

@@ -13,6 +13,7 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -25,9 +26,9 @@ import (
 )
 
 func TestLimitNodesToPark_NoLimit(t *testing.T) {
-	// Test case: MaxParkedNodes = 0 (no limit)
+	// Test case: MaxParkedNodes = "0" (no limit)
 	cfg := config.Config{
-		MaxParkedNodes:     0,
+		MaxParkedNodes:     "0",
 		UpgradeStatusLabel: "test-upgrade-status",
 	}
 
@@ -62,9 +63,9 @@ func TestLimitNodesToPark_NoLimit(t *testing.T) {
 }
 
 func TestLimitNodesToPark_WithLimit(t *testing.T) {
-	// Test case: MaxParkedNodes = 2, 1 already parked, 3 eligible nodes
+	// Test case: MaxParkedNodes = "2", 1 already parked, 3 eligible nodes
 	cfg := config.Config{
-		MaxParkedNodes:     2,
+		MaxParkedNodes:     "2",
 		UpgradeStatusLabel: "test-upgrade-status",
 	}
 
@@ -100,9 +101,9 @@ func TestLimitNodesToPark_WithLimit(t *testing.T) {
 }
 
 func TestLimitNodesToPark_NoAvailableSlots(t *testing.T) {
-	// Test case: MaxParkedNodes = 2, 2 already parked, 3 eligible nodes
+	// Test case: MaxParkedNodes = "2", 2 already parked, 3 eligible nodes
 	cfg := config.Config{
-		MaxParkedNodes:     2,
+		MaxParkedNodes:     "2",
 		UpgradeStatusLabel: "test-upgrade-status",
 	}
 
@@ -147,9 +148,9 @@ func TestLimitNodesToPark_NoAvailableSlots(t *testing.T) {
 }
 
 func TestLimitNodesToPark_NegativeLimit(t *testing.T) {
-	// Test case: MaxParkedNodes = -1 (invalid, should be treated as 0)
+	// Test case: MaxParkedNodes = "-1" (invalid, should be treated as 0)
 	cfg := config.Config{
-		MaxParkedNodes:     -1,
+		MaxParkedNodes:     "-1",
 		UpgradeStatusLabel: "test-upgrade-status",
 	}
 
@@ -169,6 +170,106 @@ func TestLimitNodesToPark_NegativeLimit(t *testing.T) {
 	// Should park all nodes (negative limit treated as no limit)
 	assert.Equal(t, len(nodes), len(result))
 	assert.Equal(t, nodes, result)
+}
+
+func TestLimitNodesToPark_PercentageLimit(t *testing.T) {
+	// Test case: MaxParkedNodes = "20%", 10 total nodes, 1 already parked, 3 eligible nodes
+	// Expected: 20% of 10 = 2 nodes max, 1 already parked, so 1 more can be parked
+	cfg := config.Config{
+		MaxParkedNodes:     "20%",
+		UpgradeStatusLabel: "test-upgrade-status",
+	}
+
+	nodes := []NodeInfo{
+		{Name: "node1"},
+		{Name: "node2"},
+		{Name: "node3"},
+	}
+
+	// Create a fake k8s client
+	fakeClient := fake.NewSimpleClientset()
+
+	// Add 10 total nodes to the cluster
+	for i := 1; i <= 10; i++ {
+		nodeName := fmt.Sprintf("cluster-node-%d", i)
+		node := &v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: nodeName,
+			},
+		}
+		_, err := fakeClient.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
+		assert.NoError(t, err)
+	}
+
+	// Add one parked node to simulate existing parked nodes
+	parkedNode := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "already-parked-node",
+			Labels: map[string]string{
+				"test-upgrade-status": "parked",
+			},
+		},
+	}
+	_, err := fakeClient.CoreV1().Nodes().Create(context.Background(), parkedNode, metav1.CreateOptions{})
+	assert.NoError(t, err)
+
+	logger := log.WithField("test", "TestLimitNodesToPark_PercentageLimit")
+
+	result, err := LimitNodesToPark(context.Background(), fakeClient, nodes, cfg.MaxParkedNodes, cfg.UpgradeStatusLabel, logger)
+
+	assert.NoError(t, err)
+	// 11 total nodes (10 cluster + 1 parked), 20% = 2.2 -> floor to 2
+	// 1 already parked, so should park 1 more
+	assert.Equal(t, 1, len(result))
+	assert.Equal(t, "node1", result[0].Name)
+}
+
+func TestLimitNodesToPark_PercentageLimit_NoSlots(t *testing.T) {
+	// Test case: MaxParkedNodes = "10%", 10 total nodes (10% = 1), 1 already parked
+	// Expected: No slots available
+	cfg := config.Config{
+		MaxParkedNodes:     "10%",
+		UpgradeStatusLabel: "test-upgrade-status",
+	}
+
+	nodes := []NodeInfo{
+		{Name: "node1"},
+		{Name: "node2"},
+	}
+
+	// Create a fake k8s client with 10 nodes
+	fakeClient := fake.NewSimpleClientset()
+
+	for i := 1; i <= 9; i++ {
+		nodeName := fmt.Sprintf("cluster-node-%d", i)
+		node := &v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: nodeName,
+			},
+		}
+		_, err := fakeClient.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
+		assert.NoError(t, err)
+	}
+
+	// Add one parked node (total = 10)
+	parkedNode := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "already-parked-node",
+			Labels: map[string]string{
+				"test-upgrade-status": "parked",
+			},
+		},
+	}
+	_, err := fakeClient.CoreV1().Nodes().Create(context.Background(), parkedNode, metav1.CreateOptions{})
+	assert.NoError(t, err)
+
+	logger := log.WithField("test", "TestLimitNodesToPark_PercentageLimit_NoSlots")
+
+	result, err := LimitNodesToPark(context.Background(), fakeClient, nodes, cfg.MaxParkedNodes, cfg.UpgradeStatusLabel, logger)
+
+	assert.NoError(t, err)
+	// 10 total nodes, 10% = 1, 1 already parked, no slots available
+	assert.Equal(t, 0, len(result))
 }
 
 func TestCountParkedNodes(t *testing.T) {

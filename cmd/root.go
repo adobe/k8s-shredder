@@ -12,6 +12,7 @@ governing permissions and limitations under the License.
 package cmd
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
@@ -123,7 +124,7 @@ func discoverConfig() {
 	viper.SetDefault("ParkedNodeTaint", "shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule")
 	viper.SetDefault("EnableNodeLabelDetection", false)
 	viper.SetDefault("NodeLabelsToDetect", []string{})
-	viper.SetDefault("MaxParkedNodes", 0)
+	viper.SetDefault("MaxParkedNodes", "0")
 	viper.SetDefault("ExtraParkingLabels", map[string]string{})
 	viper.SetDefault("EvictionSafetyCheck", true)
 	viper.SetDefault("ParkingReasonLabel", "shredder.ethos.adobe.net/parked-reason")
@@ -149,9 +150,22 @@ func parseConfig() {
 	}
 
 	// Validate MaxParkedNodes configuration
-	if cfg.MaxParkedNodes < 0 {
-		log.WithField("MaxParkedNodes", cfg.MaxParkedNodes).Warn("MaxParkedNodes is negative, treating as 0 (no limit)")
-		cfg.MaxParkedNodes = 0
+	// Basic validation - detailed parsing happens in LimitNodesToPark
+	if cfg.MaxParkedNodes != "" && cfg.MaxParkedNodes != "0" {
+		// Check if it's a percentage
+		if strings.HasSuffix(cfg.MaxParkedNodes, "%") {
+			percentageStr := strings.TrimSuffix(cfg.MaxParkedNodes, "%")
+			if _, err := strconv.ParseFloat(percentageStr, 64); err != nil {
+				log.WithField("MaxParkedNodes", cfg.MaxParkedNodes).Warn("Invalid MaxParkedNodes percentage format, treating as 0 (no limit)")
+				cfg.MaxParkedNodes = "0"
+			}
+		} else {
+			// Check if it's a valid integer
+			if _, err := strconv.Atoi(cfg.MaxParkedNodes); err != nil {
+				log.WithField("MaxParkedNodes", cfg.MaxParkedNodes).Warn("Invalid MaxParkedNodes format, treating as 0 (no limit)")
+				cfg.MaxParkedNodes = "0"
+			}
+		}
 	}
 
 	log.WithFields(log.Fields{

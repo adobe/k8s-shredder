@@ -205,7 +205,7 @@ func TestLabelDriftedNodes(t *testing.T) {
 			name:              "No drifted node claims",
 			driftedNodeClaims: []KarpenterNodeClaimInfo{},
 			cfg: config.Config{
-				MaxParkedNodes:     5,
+				MaxParkedNodes:     "5",
 				UpgradeStatusLabel: "upgrade-status",
 				ParkingReasonLabel: "parked-reason",
 			},
@@ -225,7 +225,7 @@ func TestLabelDriftedNodes(t *testing.T) {
 				},
 			},
 			cfg: config.Config{
-				MaxParkedNodes:     5,
+				MaxParkedNodes:     "5",
 				UpgradeStatusLabel: "upgrade-status",
 				ParkingReasonLabel: "parked-reason",
 			},
@@ -245,7 +245,7 @@ func TestLabelDriftedNodes(t *testing.T) {
 				},
 			},
 			cfg: config.Config{
-				MaxParkedNodes:     5,
+				MaxParkedNodes:     "5",
 				UpgradeStatusLabel: "upgrade-status",
 				ParkingReasonLabel: "parked-reason",
 			},
@@ -265,7 +265,7 @@ func TestLabelDriftedNodes(t *testing.T) {
 				},
 			},
 			cfg: config.Config{
-				MaxParkedNodes:     5,
+				MaxParkedNodes:     "5",
 				UpgradeStatusLabel: "upgrade-status",
 				ParkingReasonLabel: "parked-reason",
 			},
@@ -484,7 +484,7 @@ func TestLabelDisruptedNodes(t *testing.T) {
 			name:                "No disrupted node claims",
 			disruptedNodeClaims: []KarpenterNodeClaimInfo{},
 			cfg: config.Config{
-				MaxParkedNodes:     5,
+				MaxParkedNodes:     "5",
 				UpgradeStatusLabel: "upgrade-status",
 				ParkingReasonLabel: "parked-reason",
 			},
@@ -505,7 +505,7 @@ func TestLabelDisruptedNodes(t *testing.T) {
 				},
 			},
 			cfg: config.Config{
-				MaxParkedNodes:     5,
+				MaxParkedNodes:     "5",
 				UpgradeStatusLabel: "upgrade-status",
 				ParkingReasonLabel: "parked-reason",
 			},
@@ -526,7 +526,7 @@ func TestLabelDisruptedNodes(t *testing.T) {
 				},
 			},
 			cfg: config.Config{
-				MaxParkedNodes:     5,
+				MaxParkedNodes:     "5",
 				UpgradeStatusLabel: "upgrade-status",
 				ParkingReasonLabel: "parked-reason",
 			},
@@ -547,7 +547,7 @@ func TestLabelDisruptedNodes(t *testing.T) {
 				},
 			},
 			cfg: config.Config{
-				MaxParkedNodes:     5,
+				MaxParkedNodes:     "5",
 				UpgradeStatusLabel: "upgrade-status",
 				ParkingReasonLabel: "parked-reason",
 			},
@@ -614,7 +614,7 @@ func TestProcessDriftedKarpenterNodes(t *testing.T) {
 			appContext: &AppContext{
 				Config: config.Config{
 					UpgradeStatusLabel: "upgrade-status",
-					MaxParkedNodes:     5,
+					MaxParkedNodes:     "5",
 					ParkingReasonLabel: "parked-reason",
 				},
 				K8sClient:        fake.NewSimpleClientset(),

@@ -63,7 +63,7 @@ shredder:
   # -- List of node labels to monitor for triggering shredder actions
   NodeLabelsToDetect: []
   # -- Maximum number of nodes that can be parked simultaneously. Can be an integer (e.g., "5") or percentage (e.g., "20%"). Set to "0" for no limit
-  MaxParkedNodes: "0"
+  MaxParkedNodes: '0'
   # -- Controls whether to perform safety checks before force eviction
   EvictionSafetyCheck: true
   # -- Label used to track why a node or pod was parked

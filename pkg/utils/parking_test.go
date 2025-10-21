@@ -27,19 +27,42 @@ import (
 
 func TestLimitNodesToPark_NoLimit(t *testing.T) {
 	// Test case: MaxParkedNodes = "0" (no limit)
+	// Even with no limit, nodes should be sorted by creation time (oldest first)
 	cfg := config.Config{
 		MaxParkedNodes:     "0",
 		UpgradeStatusLabel: "test-upgrade-status",
 	}
 
-	nodes := []NodeInfo{
-		{Name: "node1"},
-		{Name: "node2"},
-		{Name: "node3"},
-	}
-
 	// Create a fake k8s client
 	fakeClient := fake.NewSimpleClientset()
+
+	// Create nodes with different creation times (node3 is oldest, node1 is newest)
+	baseTime := time.Now()
+	node3 := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "node3",
+			CreationTimestamp: metav1.Time{Time: baseTime.Add(-3 * time.Hour)}, // Oldest
+		},
+	}
+	node2 := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "node2",
+			CreationTimestamp: metav1.Time{Time: baseTime.Add(-2 * time.Hour)},
+		},
+	}
+	node1 := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "node1",
+			CreationTimestamp: metav1.Time{Time: baseTime.Add(-1 * time.Hour)}, // Newest
+		},
+	}
+
+	_, err := fakeClient.CoreV1().Nodes().Create(context.Background(), node1, metav1.CreateOptions{})
+	assert.NoError(t, err)
+	_, err = fakeClient.CoreV1().Nodes().Create(context.Background(), node2, metav1.CreateOptions{})
+	assert.NoError(t, err)
+	_, err = fakeClient.CoreV1().Nodes().Create(context.Background(), node3, metav1.CreateOptions{})
+	assert.NoError(t, err)
 
 	// Add some parked nodes to simulate existing parked nodes
 	parkedNode := &v1.Node{
@@ -50,33 +73,66 @@ func TestLimitNodesToPark_NoLimit(t *testing.T) {
 			},
 		},
 	}
-	_, err := fakeClient.CoreV1().Nodes().Create(context.Background(), parkedNode, metav1.CreateOptions{})
+	_, err = fakeClient.CoreV1().Nodes().Create(context.Background(), parkedNode, metav1.CreateOptions{})
 	assert.NoError(t, err)
 
-	logger := log.WithField("test", "TestLimitNodesToPark_NoLimit")
-
-	result, err := LimitNodesToPark(context.Background(), fakeClient, nodes, cfg.MaxParkedNodes, cfg.UpgradeStatusLabel, logger)
-
-	assert.NoError(t, err)
-	assert.Equal(t, len(nodes), len(result))
-	assert.Equal(t, nodes, result)
-}
-
-func TestLimitNodesToPark_WithLimit(t *testing.T) {
-	// Test case: MaxParkedNodes = "2", 1 already parked, 3 eligible nodes
-	cfg := config.Config{
-		MaxParkedNodes:     "2",
-		UpgradeStatusLabel: "test-upgrade-status",
-	}
-
+	// Pass nodes in arbitrary order - they should be sorted by creation time
 	nodes := []NodeInfo{
 		{Name: "node1"},
 		{Name: "node2"},
 		{Name: "node3"},
 	}
 
+	logger := log.WithField("test", "TestLimitNodesToPark_NoLimit")
+
+	result, err := LimitNodesToPark(context.Background(), fakeClient, nodes, cfg.MaxParkedNodes, cfg.UpgradeStatusLabel, logger)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(result), "Should return all nodes when no limit")
+	// Verify nodes are sorted by creation time (oldest first)
+	assert.Equal(t, "node3", result[0].Name, "Oldest node should be first")
+	assert.Equal(t, "node2", result[1].Name, "Middle node should be second")
+	assert.Equal(t, "node1", result[2].Name, "Newest node should be last")
+}
+
+func TestLimitNodesToPark_WithLimit(t *testing.T) {
+	// Test case: MaxParkedNodes = "2", 1 already parked, 3 eligible nodes
+	// Nodes should be sorted by creation time (oldest first)
+	cfg := config.Config{
+		MaxParkedNodes:     "2",
+		UpgradeStatusLabel: "test-upgrade-status",
+	}
+
 	// Create a fake k8s client
 	fakeClient := fake.NewSimpleClientset()
+
+	// Create nodes with different creation times (node3 is oldest, node1 is newest)
+	baseTime := time.Now()
+	node3 := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "node3",
+			CreationTimestamp: metav1.Time{Time: baseTime.Add(-3 * time.Hour)}, // Oldest
+		},
+	}
+	node2 := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "node2",
+			CreationTimestamp: metav1.Time{Time: baseTime.Add(-2 * time.Hour)},
+		},
+	}
+	node1 := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "node1",
+			CreationTimestamp: metav1.Time{Time: baseTime.Add(-1 * time.Hour)}, // Newest
+		},
+	}
+
+	_, err := fakeClient.CoreV1().Nodes().Create(context.Background(), node1, metav1.CreateOptions{})
+	assert.NoError(t, err)
+	_, err = fakeClient.CoreV1().Nodes().Create(context.Background(), node2, metav1.CreateOptions{})
+	assert.NoError(t, err)
+	_, err = fakeClient.CoreV1().Nodes().Create(context.Background(), node3, metav1.CreateOptions{})
+	assert.NoError(t, err)
 
 	// Add one parked node to simulate existing parked nodes
 	parkedNode := &v1.Node{
@@ -87,8 +143,15 @@ func TestLimitNodesToPark_WithLimit(t *testing.T) {
 			},
 		},
 	}
-	_, err := fakeClient.CoreV1().Nodes().Create(context.Background(), parkedNode, metav1.CreateOptions{})
+	_, err = fakeClient.CoreV1().Nodes().Create(context.Background(), parkedNode, metav1.CreateOptions{})
 	assert.NoError(t, err)
+
+	// Pass nodes in arbitrary order - they should be sorted by creation time
+	nodes := []NodeInfo{
+		{Name: "node1"},
+		{Name: "node2"},
+		{Name: "node3"},
+	}
 
 	logger := log.WithField("test", "TestLimitNodesToPark_WithLimit")
 
@@ -97,7 +160,8 @@ func TestLimitNodesToPark_WithLimit(t *testing.T) {
 	assert.NoError(t, err)
 	// Should only park 1 node (2 max - 1 already parked = 1 available slot)
 	assert.Equal(t, 1, len(result))
-	assert.Equal(t, "node1", result[0].Name)
+	// Should park node3 as it's the oldest
+	assert.Equal(t, "node3", result[0].Name)
 }
 
 func TestLimitNodesToPark_NoAvailableSlots(t *testing.T) {
@@ -270,6 +334,58 @@ func TestLimitNodesToPark_PercentageLimit_NoSlots(t *testing.T) {
 	assert.NoError(t, err)
 	// 10 total nodes, 10% = 1, 1 already parked, no slots available
 	assert.Equal(t, 0, len(result))
+}
+
+func TestLimitNodesToPark_SortingByAge(t *testing.T) {
+	// Test case: Verify nodes are sorted by creation time (oldest first)
+	cfg := config.Config{
+		MaxParkedNodes:     "2",
+		UpgradeStatusLabel: "test-upgrade-status",
+	}
+
+	// Create a fake k8s client
+	fakeClient := fake.NewSimpleClientset()
+
+	// Create 5 nodes with different creation times
+	baseTime := time.Now()
+	nodeCreationTimes := map[string]time.Time{
+		"node-newest":      baseTime.Add(-1 * time.Hour),
+		"node-older":       baseTime.Add(-2 * time.Hour),
+		"node-middle":      baseTime.Add(-3 * time.Hour),
+		"node-very-old":    baseTime.Add(-5 * time.Hour),
+		"node-oldest-ever": baseTime.Add(-10 * time.Hour), // Should be parked first
+	}
+
+	for name, createTime := range nodeCreationTimes {
+		node := &v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              name,
+				CreationTimestamp: metav1.Time{Time: createTime},
+			},
+		}
+		_, err := fakeClient.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
+		assert.NoError(t, err)
+	}
+
+	// Pass nodes in arbitrary order
+	nodes := []NodeInfo{
+		{Name: "node-newest"},
+		{Name: "node-middle"},
+		{Name: "node-oldest-ever"},
+		{Name: "node-older"},
+		{Name: "node-very-old"},
+	}
+
+	logger := log.WithField("test", "TestLimitNodesToPark_SortingByAge")
+
+	result, err := LimitNodesToPark(context.Background(), fakeClient, nodes, cfg.MaxParkedNodes, cfg.UpgradeStatusLabel, logger)
+
+	assert.NoError(t, err)
+	// Should park 2 oldest nodes
+	assert.Equal(t, 2, len(result))
+	// Should be sorted oldest first
+	assert.Equal(t, "node-oldest-ever", result[0].Name, "Oldest node should be first")
+	assert.Equal(t, "node-very-old", result[1].Name, "Second oldest node should be second")
 }
 
 func TestCountParkedNodes(t *testing.T) {

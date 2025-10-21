@@ -142,8 +142,9 @@ When `MaxParkedNodes` is set to a non-zero value:
    - For integers: `limit = configured value`
 2. **Count parked nodes**: k8s-shredder counts the number of currently parked nodes
 3. **Calculate available slots**: `availableSlots = limit - currentlyParked`
-4. **Limit parking**: If the number of eligible nodes exceeds available slots, only the first `availableSlots` nodes are parked
-5. **Skip if full**: If no slots are available (currentlyParked >= limit), parking is skipped for that eviction interval
+4. **Sort by age**: Eligible nodes are sorted by creation timestamp (oldest first) to ensure predictable parking order
+5. **Limit parking**: If the number of eligible nodes exceeds available slots, only the oldest `availableSlots` nodes are parked
+6. **Skip if full**: If no slots are available (currentlyParked >= limit), parking is skipped for that eviction interval
 
 **Examples:**
 - `MaxParkedNodes: "0"` (default): No limit, all eligible nodes are parked
@@ -156,7 +157,16 @@ When `MaxParkedNodes` is set to a non-zero value:
 - **Proportional safety**: Maintains a consistent percentage of available capacity regardless of cluster size
 - **Auto-scaling friendly**: Works well with cluster auto-scaling by recalculating limits each cycle
 
-This limit applies to both Karpenter drift detection and node label detection features. When multiple nodes are eligible for parking but the limit would be exceeded, k8s-shredder will park the nodes in the order they are discovered and skip the remaining nodes until the next eviction interval.
+**Predictable Parking Order:**
+Eligible nodes are **always sorted by creation timestamp (oldest first)**, regardless of whether `MaxParkedNodes` is set. This ensures:
+- **Consistent behavior**: The same nodes will be parked first across multiple eviction cycles
+- **Fair rotation**: Oldest nodes are prioritized for replacement during rolling upgrades
+- **Predictable capacity**: You can anticipate which nodes will be parked next when slots become available
+- **Deterministic ordering**: Even when parking all eligible nodes (no limit), they are processed in a predictable order
+
+This sorting behavior applies to both Karpenter drift detection and node label detection features. When multiple nodes are eligible for parking:
+- **With no limit** (`MaxParkedNodes: "0"`): All nodes are parked in order from oldest to newest
+- **With a limit**: Only the oldest nodes up to the limit are parked; newer nodes wait for the next eviction interval
 
 **Use cases:**
 - **Gradual node replacement**: Control the pace of node cycling during cluster upgrades

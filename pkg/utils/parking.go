@@ -476,14 +476,167 @@ func CountParkedNodes(ctx context.Context, k8sClient kubernetes.Interface, upgra
 	return count, nil
 }
 
+// ParseMaxParkedNodes parses the MaxParkedNodes configuration and returns the actual limit
+// It supports both integer values (e.g., "5") and percentage values (e.g., "20%")
+// For percentage values, it calculates the limit as (percentage/100) * totalNodes
+// Returns 0 for invalid values or when no limit should be applied
+func ParseMaxParkedNodes(ctx context.Context, k8sClient kubernetes.Interface, maxParkedNodesStr string, logger *log.Entry) (int, error) {
+	logger = logger.WithField("function", "ParseMaxParkedNodes")
+
+	// Handle empty or "0" values
+	if maxParkedNodesStr == "" || maxParkedNodesStr == "0" {
+		logger.Debug("MaxParkedNodes is empty or 0, no limit will be applied")
+		return 0, nil
+	}
+
+	// Check if it's a percentage
+	if strings.HasSuffix(maxParkedNodesStr, "%") {
+		// Parse percentage value
+		percentageStr := strings.TrimSuffix(maxParkedNodesStr, "%")
+		percentage, err := strconv.ParseFloat(percentageStr, 64)
+		if err != nil {
+			logger.WithError(err).WithField("value", maxParkedNodesStr).Warn("Failed to parse MaxParkedNodes percentage, treating as 0 (no limit)")
+			return 0, nil
+		}
+
+		if percentage < 0 {
+			logger.WithField("percentage", percentage).Warn("MaxParkedNodes percentage is negative, treating as 0 (no limit)")
+			return 0, nil
+		}
+
+		if percentage == 0 {
+			logger.Debug("MaxParkedNodes percentage is 0, no limit will be applied")
+			return 0, nil
+		}
+
+		// Get total number of nodes in the cluster
+		nodeList, err := k8sClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			logger.WithError(err).Error("Failed to list nodes for percentage calculation")
+			return 0, errors.Wrap(err, "failed to list nodes for percentage calculation")
+		}
+
+		totalNodes := len(nodeList.Items)
+		if totalNodes == 0 {
+			logger.Warn("No nodes found in cluster, cannot calculate percentage-based limit")
+			return 0, nil
+		}
+
+		// Calculate the limit: (percentage/100) * totalNodes, rounded down
+		limit := int((percentage / 100.0) * float64(totalNodes))
+
+		logger.WithFields(log.Fields{
+			"percentage": percentage,
+			"totalNodes": totalNodes,
+			"limit":      limit,
+		}).Info("Calculated MaxParkedNodes limit from percentage")
+
+		return limit, nil
+	}
+
+	// Not a percentage, try to parse as integer
+	limit, err := strconv.Atoi(maxParkedNodesStr)
+	if err != nil {
+		logger.WithError(err).WithField("value", maxParkedNodesStr).Warn("Failed to parse MaxParkedNodes as integer, treating as 0 (no limit)")
+		return 0, nil
+	}
+
+	if limit < 0 {
+		logger.WithField("limit", limit).Warn("MaxParkedNodes is negative, treating as 0 (no limit)")
+		return 0, nil
+	}
+
+	logger.WithField("limit", limit).Debug("Using MaxParkedNodes as integer limit")
+	return limit, nil
+}
+
+// sortNodesByCreationTime sorts a list of NodeInfo by creation timestamp (oldest first)
+// Returns a new sorted slice without modifying the original
+func sortNodesByCreationTime(ctx context.Context, k8sClient kubernetes.Interface, nodes []NodeInfo, logger *log.Entry) ([]NodeInfo, error) {
+	if len(nodes) <= 1 {
+		return nodes, nil
+	}
+
+	// Create a map to store creation times
+	type nodeWithTime struct {
+		info       NodeInfo
+		createTime time.Time
+	}
+
+	nodesWithTime := make([]nodeWithTime, 0, len(nodes))
+
+	// Fetch creation times for all nodes
+	for _, node := range nodes {
+		k8sNode, err := k8sClient.CoreV1().Nodes().Get(ctx, node.Name, metav1.GetOptions{})
+		if err != nil {
+			logger.WithError(err).WithField("nodeName", node.Name).Warn("Failed to get node for sorting, will use current position")
+			// If we can't get the node, add it with zero time (will be sorted to end)
+			nodesWithTime = append(nodesWithTime, nodeWithTime{
+				info:       node,
+				createTime: time.Time{},
+			})
+			continue
+		}
+
+		nodesWithTime = append(nodesWithTime, nodeWithTime{
+			info:       node,
+			createTime: k8sNode.CreationTimestamp.Time,
+		})
+	}
+
+	// Sort by creation time (oldest first)
+	slices.SortFunc(nodesWithTime, func(a, b nodeWithTime) int {
+		// Nodes with zero time (failed to fetch) go to the end
+		if a.createTime.IsZero() && !b.createTime.IsZero() {
+			return 1
+		}
+		if !a.createTime.IsZero() && b.createTime.IsZero() {
+			return -1
+		}
+		// Both have valid times or both are zero - compare normally
+		if a.createTime.Before(b.createTime) {
+			return -1
+		}
+		if a.createTime.After(b.createTime) {
+			return 1
+		}
+		return 0
+	})
+
+	// Extract sorted NodeInfo
+	sortedNodes := make([]NodeInfo, len(nodesWithTime))
+	for i, nwt := range nodesWithTime {
+		sortedNodes[i] = nwt.info
+	}
+
+	logger.WithField("nodeCount", len(sortedNodes)).Debug("Sorted nodes by creation time (oldest first)")
+
+	return sortedNodes, nil
+}
+
 // LimitNodesToPark limits the number of nodes to park based on MaxParkedNodes configuration
 // It returns the nodes that should be parked, prioritizing the oldest nodes first
-func LimitNodesToPark(ctx context.Context, k8sClient kubernetes.Interface, nodes []NodeInfo, maxParkedNodes int, upgradeStatusLabel string, logger *log.Entry) ([]NodeInfo, error) {
+func LimitNodesToPark(ctx context.Context, k8sClient kubernetes.Interface, nodes []NodeInfo, maxParkedNodesStr string, upgradeStatusLabel string, logger *log.Entry) ([]NodeInfo, error) {
 	logger = logger.WithField("function", "LimitNodesToPark")
 
+	// Always sort nodes by creation timestamp (oldest first) to ensure predictable parking order
+	// This happens regardless of whether MaxParkedNodes is set
+	sortedNodes, err := sortNodesByCreationTime(ctx, k8sClient, nodes, logger)
+	if err != nil {
+		logger.WithError(err).Warn("Failed to sort nodes by creation time, using original order")
+		sortedNodes = nodes
+	}
+
+	// Parse MaxParkedNodes to get the actual limit
+	maxParkedNodes, err := ParseMaxParkedNodes(ctx, k8sClient, maxParkedNodesStr, logger)
+	if err != nil {
+		logger.WithError(err).Error("Failed to parse MaxParkedNodes")
+		return nil, errors.Wrap(err, "failed to parse MaxParkedNodes")
+	}
+
 	if maxParkedNodes <= 0 {
-		logger.Debug("MaxParkedNodes is not set or invalid, parking all eligible nodes")
-		return nodes, nil
+		logger.Debug("MaxParkedNodes is not set or invalid, parking all eligible nodes in order (oldest first)")
+		return sortedNodes, nil
 	}
 
 	// Count currently parked nodes
@@ -494,49 +647,50 @@ func LimitNodesToPark(ctx context.Context, k8sClient kubernetes.Interface, nodes
 	}
 
 	logger.WithFields(log.Fields{
-		"currentlyParked": currentlyParked,
-		"maxParkedNodes":  maxParkedNodes,
-		"eligibleNodes":   len(nodes),
+		"currentlyParked":   currentlyParked,
+		"maxParkedNodes":    maxParkedNodes,
+		"maxParkedNodesStr": maxParkedNodesStr,
+		"eligibleNodes":     len(sortedNodes),
 	}).Info("Checking parking limits")
 
 	// Calculate how many nodes we can park
 	availableSlots := maxParkedNodes - currentlyParked
 	if availableSlots <= 0 {
 		logger.WithFields(log.Fields{
-			"currentlyParked": currentlyParked,
-			"maxParkedNodes":  maxParkedNodes,
-			"availableSlots":  availableSlots,
+			"currentlyParked":   currentlyParked,
+			"maxParkedNodes":    maxParkedNodes,
+			"maxParkedNodesStr": maxParkedNodesStr,
+			"availableSlots":    availableSlots,
 		}).Warn("No available parking slots, skipping parking for this interval")
 		return []NodeInfo{}, nil
 	}
 
 	// If we have more eligible nodes than available slots, limit to the oldest nodes
-	if len(nodes) > availableSlots {
+	if len(sortedNodes) > availableSlots {
 		logger.WithFields(log.Fields{
-			"eligibleNodes":  len(nodes),
+			"eligibleNodes":  len(sortedNodes),
 			"availableSlots": availableSlots,
 			"nodesToPark":    availableSlots,
-			"nodesToSkip":    len(nodes) - availableSlots,
+			"nodesToSkip":    len(sortedNodes) - availableSlots,
 		}).Info("Limiting nodes to park based on MaxParkedNodes configuration")
 
-		// For now, we'll take the first availableSlots nodes
-		// In a future enhancement, we could sort by node creation time or other criteria
-		limitedNodes := nodes[:availableSlots]
+		// Take the first availableSlots nodes (oldest nodes due to sorting)
+		limitedNodes := sortedNodes[:availableSlots]
 
 		// Log which nodes are being skipped
-		for i := availableSlots; i < len(nodes); i++ {
-			logger.WithField("skippedNode", nodes[i].Name).Debug("Skipping node due to MaxParkedNodes limit")
+		for i := availableSlots; i < len(sortedNodes); i++ {
+			logger.WithField("skippedNode", sortedNodes[i].Name).Debug("Skipping node due to MaxParkedNodes limit")
 		}
 
 		return limitedNodes, nil
 	}
 
 	logger.WithFields(log.Fields{
-		"eligibleNodes":  len(nodes),
+		"eligibleNodes":  len(sortedNodes),
 		"availableSlots": availableSlots,
 	}).Info("All eligible nodes can be parked within MaxParkedNodes limit")
 
-	return nodes, nil
+	return sortedNodes, nil
 }
 
 // UnparkNode unparks a node by removing parking labels, taints, and uncordoning it

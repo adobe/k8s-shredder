@@ -49,8 +49,11 @@ type Config struct {
 	EnableNodeLabelDetection bool
 	// NodeLabelsToDetect is a list of node labels to look for. Can be just keys or key=value pairs
 	NodeLabelsToDetect []string
-	// MaxParkedNodes is the maximum number of nodes that can be parked simultaneously. If set to 0 (default), no limit is applied.
-	MaxParkedNodes int
+	// MaxParkedNodes is the maximum number of nodes that can be parked simultaneously.
+	// Can be either an integer (e.g. "5") or a percentage (e.g. "20%").
+	// If set to "0" or empty (default), no limit is applied.
+	// When a percentage is specified, the limit is calculated as (percentage/100) * (total nodes in cluster).
+	MaxParkedNodes string
 	// ExtraParkingLabels is a map of additional labels to apply to nodes and pods during the parking process. If not set, no extra labels are applied.
 	ExtraParkingLabels map[string]string
 	// EvictionSafetyCheck controls whether to perform safety checks before force eviction. If true, nodes will be unparked if pods don't have required parking labels.

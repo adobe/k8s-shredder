@@ -430,7 +430,7 @@ func TestParkNodesWithLabels(t *testing.T) {
 			name:          "No matching nodes",
 			matchingNodes: []NodeLabelInfo{},
 			cfg: config.Config{
-				MaxParkedNodes:     5,
+				MaxParkedNodes:     "5",
 				UpgradeStatusLabel: "upgrade-status",
 			},
 			dryRun:      false,
@@ -448,7 +448,7 @@ func TestParkNodesWithLabels(t *testing.T) {
 				},
 			},
 			cfg: config.Config{
-				MaxParkedNodes:     5,
+				MaxParkedNodes:     "5",
 				UpgradeStatusLabel: "upgrade-status",
 			},
 			dryRun:      false,
@@ -472,7 +472,7 @@ func TestParkNodesWithLabels(t *testing.T) {
 				},
 			},
 			cfg: config.Config{
-				MaxParkedNodes:     5,
+				MaxParkedNodes:     "5",
 				UpgradeStatusLabel: "upgrade-status",
 			},
 			dryRun:      false,
@@ -490,7 +490,7 @@ func TestParkNodesWithLabels(t *testing.T) {
 				},
 			},
 			cfg: config.Config{
-				MaxParkedNodes:     5,
+				MaxParkedNodes:     "5",
 				UpgradeStatusLabel: "upgrade-status",
 			},
 			dryRun:      true,
@@ -520,7 +520,7 @@ func TestParkNodesWithLabels(t *testing.T) {
 				},
 			},
 			cfg: config.Config{
-				MaxParkedNodes:     2,
+				MaxParkedNodes:     "2",
 				UpgradeStatusLabel: "upgrade-status",
 			},
 			dryRun:      false,

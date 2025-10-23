@@ -32,7 +32,7 @@ NodeLabelsToDetect: []  # List of node labels to detect. Supports both key-only 
   # - "node.example.com/park"  # Matches any node with the "node.example.com/park" label
 
 # Parking limits
-MaxParkedNodes: 0  # Maximum number of nodes that can be parked simultaneously. Set to 0 (default) for no limit.
+MaxParkedNodes: '0'  # Maximum number of nodes that can be parked simultaneously. Can be an integer (e.g., "5") or percentage (e.g., "20%"). Set to "0" (default) for no limit.
 
 # Extra labels to apply to parked nodes and pods
 # ExtraParkingLabels:  # (optional) Additional labels to apply to nodes and pods during parking

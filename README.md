@@ -58,7 +58,7 @@ The following options can be used to customize the k8s-shredder controller:
 | ParkedNodeTaint                    | "shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule" | Taint to apply to parked nodes in format key=value:effect                                            |
 | EnableNodeLabelDetection           | false                                                       | Controls whether to scan for nodes with specific labels and automatically park them                  |
 | NodeLabelsToDetect                 | []                                                          | List of node labels to detect. Supports both key-only and key=value formats                          |
-| MaxParkedNodes                     | 0                                                           | Maximum number of nodes that can be parked simultaneously. Set to 0 (default) for no limit.         |
+| MaxParkedNodes                     | "0"                                                         | Maximum number of nodes that can be parked simultaneously. Can be an integer (e.g., "5") or percentage (e.g., "20%"). Set to "0" (default) for no limit. |
 | ExtraParkingLabels                 | {}                                                          | (Optional) Map of extra labels to apply to nodes and pods during parking. Example: `{ "example.com/owner": "infrastructure" }` |
 | EvictionSafetyCheck                | true                                                        | Controls whether to perform safety checks before force eviction. If true, nodes will be unparked if pods don't have required parking labels. |
 | ParkingReasonLabel                 | "shredder.ethos.adobe.net/parked-reason"                   | Label used to track why a node or pod was parked (values: node-label, karpenter-drifted, karpenter-disrupted) |
@@ -131,25 +131,49 @@ This integration allows k8s-shredder to automatically handle node lifecycle mana
 
 k8s-shredder supports limiting the maximum number of nodes that can be parked simultaneously using the `MaxParkedNodes` configuration option. This feature helps prevent overwhelming the cluster with too many parked nodes at once, which could impact application availability.
 
-When `MaxParkedNodes` is set to a positive integer:
+`MaxParkedNodes` can be specified as either:
+- **Integer value** (e.g., `"5"`): Absolute maximum number of nodes that can be parked
+- **Percentage value** (e.g., `"20%"`): Maximum percentage of total cluster nodes that can be parked (calculated dynamically each cycle)
 
-1. **Before parking nodes**: k8s-shredder counts the number of currently parked nodes
-2. **Calculate available slots**: `availableSlots = MaxParkedNodes - currentlyParked`
-3. **Limit parking**: If the number of eligible nodes exceeds available slots, only the first `availableSlots` nodes are parked
-4. **Skip if full**: If no slots are available (currentlyParked >= MaxParkedNodes), parking is skipped for that eviction interval
+When `MaxParkedNodes` is set to a non-zero value:
+
+1. **Parse the limit**: The configuration is parsed to determine the actual limit
+   - For percentages: `limit = (percentage / 100) * totalNodes` (rounded down)
+   - For integers: `limit = configured value`
+2. **Count parked nodes**: k8s-shredder counts the number of currently parked nodes
+3. **Calculate available slots**: `availableSlots = limit - currentlyParked`
+4. **Sort by age**: Eligible nodes are sorted by creation timestamp (oldest first) to ensure predictable parking order
+5. **Limit parking**: If the number of eligible nodes exceeds available slots, only the oldest `availableSlots` nodes are parked
+6. **Skip if full**: If no slots are available (currentlyParked >= limit), parking is skipped for that eviction interval
 
 **Examples:**
-- `MaxParkedNodes: 0` (default): No limit, all eligible nodes are parked
-- `MaxParkedNodes: 5`: Maximum 5 nodes can be parked at any time
-- `MaxParkedNodes: -1`: Invalid value, treated as 0 (no limit) with a warning logged
+- `MaxParkedNodes: "0"` (default): No limit, all eligible nodes are parked
+- `MaxParkedNodes: "5"`: Maximum 5 nodes can be parked at any time
+- `MaxParkedNodes: "20%"`: Maximum 20% of total cluster nodes can be parked (e.g., 2 nodes in a 10-node cluster)
+- Invalid values (e.g., `"-1"`, `"invalid"`): Treated as 0 (no limit) with a warning logged
 
-This limit applies to both Karpenter drift detection and node label detection features. When multiple nodes are eligible for parking but the limit would be exceeded, k8s-shredder will park the nodes in the order they are discovered and skip the remaining nodes until the next eviction interval.
+**Percentage Benefits:**
+- **Dynamic scaling**: Limit automatically adjusts as cluster size changes
+- **Proportional safety**: Maintains a consistent percentage of available capacity regardless of cluster size
+- **Auto-scaling friendly**: Works well with cluster auto-scaling by recalculating limits each cycle
+
+**Predictable Parking Order:**
+Eligible nodes are **always sorted by creation timestamp (oldest first)**, regardless of whether `MaxParkedNodes` is set. This ensures:
+- **Consistent behavior**: The same nodes will be parked first across multiple eviction cycles
+- **Fair rotation**: Oldest nodes are prioritized for replacement during rolling upgrades
+- **Predictable capacity**: You can anticipate which nodes will be parked next when slots become available
+- **Deterministic ordering**: Even when parking all eligible nodes (no limit), they are processed in a predictable order
+
+This sorting behavior applies to both Karpenter drift detection and node label detection features. When multiple nodes are eligible for parking:
+- **With no limit** (`MaxParkedNodes: "0"`): All nodes are parked in order from oldest to newest
+- **With a limit**: Only the oldest nodes up to the limit are parked; newer nodes wait for the next eviction interval
 
 **Use cases:**
 - **Gradual node replacement**: Control the pace of node cycling during cluster upgrades
 - **Resource management**: Prevent excessive resource pressure from too many parked nodes
 - **Application stability**: Ensure applications have sufficient capacity during node transitions
 - **Cost optimization**: Balance between node replacement speed and cluster stability
+- **Auto-scaling clusters**: Use percentage-based limits to maintain consistent safety margins as cluster size changes
 
 #### ExtraParkingLabels
 

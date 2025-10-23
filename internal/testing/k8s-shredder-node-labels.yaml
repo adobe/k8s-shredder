@@ -83,7 +83,7 @@ data:
       - "test-label"
       - "maintenance=scheduled"
       - "node.test.io/park"
-    MaxParkedNodes: 0
+    MaxParkedNodes: "0"
 ---
 apiVersion: v1
 kind: Service

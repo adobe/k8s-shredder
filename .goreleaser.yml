@@ -22,11 +22,8 @@ builds:
 signs:
   - cmd: cosign
     env: [COSIGN_EXPERIMENTAL=1]
-    certificate: ${artifact}.pem
     args:
       - sign-blob
-      - --output-certificate=${certificate}
-      - --output-signature=${signature}
       - --bundle=${signature}.bundle
       - ${artifact}
       - --yes  # needed on cosign 2.0.0+

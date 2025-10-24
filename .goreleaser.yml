@@ -22,9 +22,10 @@ builds:
 signs:
   - cmd: cosign
     env: [COSIGN_EXPERIMENTAL=1]
+    signature: ${artifact}.bundle
     args:
       - sign-blob
-      - --bundle=${signature}.bundle
+      - --bundle=${signature}
       - ${artifact}
       - --yes  # needed on cosign 2.0.0+
     artifacts: checksum

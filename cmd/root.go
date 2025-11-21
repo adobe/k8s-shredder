@@ -128,6 +128,8 @@ func discoverConfig() {
 	viper.SetDefault("ExtraParkingLabels", map[string]string{})
 	viper.SetDefault("EvictionSafetyCheck", true)
 	viper.SetDefault("ParkingReasonLabel", "shredder.ethos.adobe.net/parked-reason")
+	viper.SetDefault("EvictionLoopSchedule", "")
+	viper.SetDefault("EvictionLoopDuration", "")
 
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -190,7 +192,23 @@ func parseConfig() {
 		"ExtraParkingLabels":                 cfg.ExtraParkingLabels,
 		"EvictionSafetyCheck":                cfg.EvictionSafetyCheck,
 		"ParkingReasonLabel":                 cfg.ParkingReasonLabel,
+		"EvictionLoopSchedule":               cfg.EvictionLoopSchedule,
+		"EvictionLoopDuration":               cfg.EvictionLoopDuration,
 	}).Info("Loaded configuration")
+
+	// Validate schedule configuration if provided
+	if cfg.HasEvictionLoopSchedule() {
+		sched, err := cfg.GetEvictionLoopSchedule()
+		if err != nil {
+			log.Fatalf("Invalid EvictionLoopSchedule configuration: %s", err)
+		}
+		if sched != nil {
+			log.WithFields(log.Fields{
+				"schedule": cfg.EvictionLoopSchedule,
+				"duration": cfg.EvictionLoopDuration,
+			}).Info("EvictionLoopSchedule configured - operations will only run during scheduled windows")
+		}
+	}
 }
 
 func preRun(cmd *cobra.Command, args []string) {

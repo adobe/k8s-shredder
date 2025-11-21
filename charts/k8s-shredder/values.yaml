@@ -30,6 +30,10 @@ logFormat: text
 shredder:
   # -- How often to run the main eviction loop
   EvictionLoopInterval: 1h
+  # -- Optional cron schedule for when eviction operations are allowed. If set, parking and shredding operations will only occur during the scheduled time window. Supports standard cron syntax and macros (@yearly, @monthly, @weekly, @daily, @hourly). Example: "@daily" (runs at midnight UTC), "0 2 * * *" (runs at 2 AM UTC daily). When omitted, operations run continuously.
+  EvictionLoopSchedule: ''
+  # -- Duration for how long the scheduled window stays active after the schedule triggers. Only used when EvictionLoopSchedule is set. Supports compound durations with hours and minutes (e.g., "10h5m", "30m", "160h"). Example: "10h" (window stays active for 10 hours), "30m" (window stays active for 30 minutes).
+  EvictionLoopDuration: ''
   # -- How long parked nodes should remain before being eligible for deletion (7 days default)
   ParkedNodeTTL: 168h
   # -- Maximum percentage of nodes that can be restarted simultaneously during rolling restarts

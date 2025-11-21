@@ -8,6 +8,12 @@ metadata:
 data:
   config.yaml: |-
     EvictionLoopInterval: "{{.Values.shredder.EvictionLoopInterval}}"
+    {{- if .Values.shredder.EvictionLoopSchedule }}
+    EvictionLoopSchedule: "{{.Values.shredder.EvictionLoopSchedule}}"
+    {{- end }}
+    {{- if .Values.shredder.EvictionLoopDuration }}
+    EvictionLoopDuration: "{{.Values.shredder.EvictionLoopDuration}}"
+    {{- end }}
     ParkedNodeTTL: "{{.Values.shredder.ParkedNodeTTL}}"
     RollingRestartThreshold: "{{.Values.shredder.RollingRestartThreshold}}"
     UpgradeStatusLabel: "{{.Values.shredder.UpgradeStatusLabel}}"

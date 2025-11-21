@@ -11,12 +11,27 @@ governing permissions and limitations under the License.
 
 package config
 
-import "time"
+import (
+	"time"
+
+	"github.com/adobe/k8s-shredder/pkg/schedule"
+	"github.com/pkg/errors"
+)
 
 // Config struct defines application configuration options
 type Config struct {
 	// EvictionLoopInterval defines how often to run the eviction loop process
 	EvictionLoopInterval time.Duration
+	// EvictionLoopSchedule is an optional cron schedule for when eviction operations are allowed
+	// If set, parking and shredding operations will only occur during the scheduled time window
+	// Supports standard cron syntax and macros (@yearly, @monthly, @weekly, @daily, @hourly)
+	// Example: "@daily" (runs at midnight UTC), "0 2 * * *" (runs at 2 AM UTC daily)
+	EvictionLoopSchedule string
+	// EvictionLoopDuration defines how long the scheduled window stays active after the schedule triggers
+	// Only used when EvictionLoopSchedule is set
+	// Supports compound durations with hours and minutes (e.g., "10h5m", "30m", "160h")
+	// Example: "10h" (window stays active for 10 hours), "30m" (window stays active for 30 minutes)
+	EvictionLoopDuration string
 	// ParkedNodeTTL is used for defining the time a node can stay parked before starting force eviction process
 	ParkedNodeTTL time.Duration
 	// RollingRestartThreshold specifies how much time(percentage) should pass from ParkedNodeTTL before starting the rollout restart process
@@ -60,4 +75,23 @@ type Config struct {
 	EvictionSafetyCheck bool
 	// ParkingReasonLabel is the label used to track why a node or pod was parked
 	ParkingReasonLabel string
+}
+
+// GetEvictionLoopSchedule returns a parsed Schedule object if EvictionLoopSchedule is configured
+// Returns nil if schedule is not configured or if there's an error parsing it
+func (c *Config) GetEvictionLoopSchedule() (*schedule.Schedule, error) {
+	if c.EvictionLoopSchedule == "" {
+		return nil, nil
+	}
+
+	if c.EvictionLoopDuration == "" {
+		return nil, errors.New("EvictionLoopDuration must be set when EvictionLoopSchedule is configured")
+	}
+
+	return schedule.NewSchedule(c.EvictionLoopSchedule, c.EvictionLoopDuration)
+}
+
+// HasEvictionLoopSchedule returns true if EvictionLoopSchedule is configured
+func (c *Config) HasEvictionLoopSchedule() bool {
+	return c.EvictionLoopSchedule != ""
 }

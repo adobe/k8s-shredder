@@ -8,7 +8,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 <p align="center">
-  <img src="docs/shredder_firefly.png" alt="K8s-Shredder project">
+  <img src="docs/k8s-shredder-logo.png" alt="K8s-Shredder project">
 </p>
 
 A common issue that kubernetes operators run into is how to balance the requirements of long-running workloads with the need to periodically cycle through worker nodes (e.g. for a kubernetes upgrade or configuration change).  Stateful set workloads (kafka, zookeeper, 
@@ -43,6 +43,8 @@ The following options can be used to customize the k8s-shredder controller:
 | Name                               | Default Value                                               | Description                                                                                          |
 | :--------------------------------: | :---------------------------------------------------------: | :--------------------------------------------------------------------------------------------------: |
 | EvictionLoopInterval               | 60s                                                         | How often to run the eviction loop process                                                           |
+| EvictionLoopSchedule               | ""                                                          | Optional cron schedule for when eviction operations are allowed. If set, parking and shredding operations will only occur during the scheduled time window. Supports standard cron syntax and macros (@yearly, @monthly, @weekly, @daily, @hourly). Example: "@daily" (runs at midnight UTC), "0 2 * * *" (runs at 2 AM UTC daily). When omitted, operations run continuously. |
+| EvictionLoopDuration               | ""                                                          | Duration for how long the scheduled window stays active after the schedule triggers. Only used when EvictionLoopSchedule is set. Supports compound durations with hours and minutes (e.g., "10h5m", "30m", "160h"). Example: "10h" (window stays active for 10 hours), "30m" (window stays active for 30 minutes). |
 | ParkedNodeTTL                      | 60m                                                         | Time a node can be parked before starting force eviction process                                     |
 | RollingRestartThreshold            | 0.5                                                         | How much time(percentage) should pass from ParkedNodeTTL before starting the rollout restart process |
 | UpgradeStatusLabel                 | "shredder.ethos.adobe.net/upgrade-status"                   | Label used for the identifying parked nodes                                                          |
@@ -262,6 +264,97 @@ ParkingReasonLabel: "shredder.ethos.adobe.net/parked-reason"  # Default label na
 - **Debugging**: Understand why specific nodes were parked
 - **Automation**: Trigger different workflows based on parking reason
 - **Compliance**: Audit parking actions and their sources
+
+#### EvictionLoopSchedule
+
+k8s-shredder supports scheduling eviction operations to run only during specific time windows, similar to [Karpenter's disruption schedules](https://karpenter.sh/docs/concepts/disruption/#schedule). This feature allows you to restrict parking and shredding operations to maintenance windows or off-peak hours, minimizing disruption during critical business periods.
+
+**How it works:**
+
+When `EvictionLoopSchedule` and `EvictionLoopDuration` are configured:
+
+1. **Schedule triggers**: The cron schedule determines when the operation window starts (e.g., `@daily` triggers at midnight UTC)
+2. **Active window**: After the schedule triggers, operations remain active for the specified `EvictionLoopDuration` (e.g., `10h` means operations are allowed for 10 hours)
+3. **Outside window**: When outside the active window, the eviction loop exits early with a log message indicating it's outside the operation schedule
+4. **Continuous checking**: The eviction loop continues to run at the configured `EvictionLoopInterval`, but only performs operations when within the scheduled window
+
+**Configuration:**
+
+```yaml
+EvictionLoopSchedule: "@daily"        # Cron schedule (supports macros and standard syntax)
+EvictionLoopDuration: "10h"            # How long the window stays active
+```
+
+**Schedule Format:**
+
+The schedule supports standard Kubernetes CronJob syntax with the following macros:
+
+- `@yearly` or `@annually`: Runs at 00:00:00 UTC on January 1st
+- `@monthly`: Runs at 00:00:00 UTC on the 1st of each month
+- `@weekly`: Runs at 00:00:00 UTC on Sunday
+- `@daily` or `@midnight`: Runs at 00:00:00 UTC each day
+- `@hourly`: Runs at the top of each hour
+
+Standard cron syntax is also supported:
+```bash
+# ┌───────────── minute (0 - 59)
+# │ ┌───────────── hour (0 - 23)
+# │ │ ┌───────────── day of the month (1 - 31)
+# │ │ │ ┌───────────── month (1 - 12)
+# │ │ │ │ ┌───────────── day of the week (0 - 6) (Sunday to Saturday)
+# │ │ │ │ │
+# * * * * *
+```
+
+**Duration Format:**
+
+Duration supports compound durations with hours and minutes:
+- `"10h"`: 10 hours
+- `"30m"`: 30 minutes
+- `"10h5m"`: 10 hours and 5 minutes
+- `"160h"`: 160 hours
+
+**Examples:**
+
+1. **Daily maintenance window** (10 PM to 6 AM UTC):
+```yaml
+EvictionLoopSchedule: "0 22 * * *"    # 10 PM UTC daily
+EvictionLoopDuration: "8h"            # Active for 8 hours (until 6 AM)
+```
+
+2. **Weekend-only operations**:
+```yaml
+EvictionLoopSchedule: "0 0 * * 0"     # Midnight UTC on Sunday
+EvictionLoopDuration: "48h"           # Active for 48 hours (entire weekend)
+```
+
+3. **Business hours exclusion** (operations only outside 9 AM - 5 PM UTC):
+```yaml
+EvictionLoopSchedule: "0 17 * * 1-5"  # 5 PM UTC on weekdays
+EvictionLoopDuration: "16h"           # Active until 9 AM next day
+```
+
+4. **Hourly maintenance windows**:
+```yaml
+EvictionLoopSchedule: "@hourly"        # Top of each hour
+EvictionLoopDuration: "30m"           # Active for 30 minutes each hour
+```
+
+**Behavior:**
+
+- **When schedule is configured**: Operations only occur during the active window
+- **When schedule is omitted**: Operations run continuously (default behavior)
+- **Schedule validation**: Both `EvictionLoopSchedule` and `EvictionLoopDuration` must be set together, or both omitted
+- **Time zone**: All schedules are evaluated in UTC (consistent with Kubernetes CronJob behavior)
+- **Logging**: When outside the schedule window, the eviction loop logs: `"Outside of operation schedule (schedule: ..., duration: ...), skipping eviction loop"`
+
+**Use cases:**
+
+- **Maintenance windows**: Restrict operations to scheduled maintenance periods
+- **Business hours**: Avoid disruptions during peak business hours
+- **Cost optimization**: Run operations during off-peak hours when resources are cheaper
+- **Compliance**: Ensure operations only occur during approved time windows
+- **Gradual rollouts**: Control when node cycling occurs during cluster upgrades
 
 ## Metrics
 

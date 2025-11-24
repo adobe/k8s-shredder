@@ -1,6 +1,6 @@
 # k8s-shredder
 
-![Version: 0.2.7](https://img.shields.io/badge/Version-0.2.7-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.3.7](https://img.shields.io/badge/AppVersion-v0.3.7-informational?style=flat-square)
+![Version: 0.2.8](https://img.shields.io/badge/Version-0.2.8-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.3.8](https://img.shields.io/badge/AppVersion-v0.3.8-informational?style=flat-square)
 
 a novel way of dealing with kubernetes nodes blocked from draining
 
@@ -64,13 +64,15 @@ a novel way of dealing with kubernetes nodes blocked from draining
 | serviceAccount.annotations | object | `{}` | Additional annotations for the service account (useful for IAM roles, etc.) |
 | serviceAccount.create | bool | `true` | Create a service account for k8s-shredder |
 | serviceAccount.name | string | `"k8s-shredder"` | Name of the service account |
-| shredder | object | `{"AllowEvictionLabel":"shredder.ethos.adobe.net/allow-eviction","ArgoRolloutsAPIVersion":"v1alpha1","EnableKarpenterDisruptionDetection":false,"EnableKarpenterDriftDetection":false,"EnableNodeLabelDetection":false,"EvictionLoopInterval":"1h","EvictionSafetyCheck":true,"ExpiresOnLabel":"shredder.ethos.adobe.net/parked-node-expires-on","ExtraParkingLabels":{},"MaxParkedNodes":"0","NamespacePrefixSkipInitialEviction":"ns-ethos-","NodeLabelsToDetect":[],"ParkedByLabel":"shredder.ethos.adobe.net/parked-by","ParkedByValue":"k8s-shredder","ParkedNodeTTL":"168h","ParkedNodeTaint":"shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule","ParkingReasonLabel":"shredder.ethos.adobe.net/parked-reason","RestartedAtAnnotation":"shredder.ethos.adobe.net/restartedAt","RollingRestartThreshold":0.1,"ToBeDeletedTaint":"ToBeDeletedByClusterAutoscaler","UpgradeStatusLabel":"shredder.ethos.adobe.net/upgrade-status"}` | Core k8s-shredder configuration |
+| shredder | object | `{"AllowEvictionLabel":"shredder.ethos.adobe.net/allow-eviction","ArgoRolloutsAPIVersion":"v1alpha1","EnableKarpenterDisruptionDetection":false,"EnableKarpenterDriftDetection":false,"EnableNodeLabelDetection":false,"EvictionLoopDuration":"","EvictionLoopInterval":"1h","EvictionLoopSchedule":"","EvictionSafetyCheck":true,"ExpiresOnLabel":"shredder.ethos.adobe.net/parked-node-expires-on","ExtraParkingLabels":{},"MaxParkedNodes":"0","NamespacePrefixSkipInitialEviction":"ns-ethos-","NodeLabelsToDetect":[],"ParkedByLabel":"shredder.ethos.adobe.net/parked-by","ParkedByValue":"k8s-shredder","ParkedNodeTTL":"168h","ParkedNodeTaint":"shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule","ParkingReasonLabel":"shredder.ethos.adobe.net/parked-reason","RestartedAtAnnotation":"shredder.ethos.adobe.net/restartedAt","RollingRestartThreshold":0.1,"ToBeDeletedTaint":"ToBeDeletedByClusterAutoscaler","UpgradeStatusLabel":"shredder.ethos.adobe.net/upgrade-status"}` | Core k8s-shredder configuration |
 | shredder.AllowEvictionLabel | string | `"shredder.ethos.adobe.net/allow-eviction"` | Label to explicitly allow eviction on specific resources |
 | shredder.ArgoRolloutsAPIVersion | string | `"v1alpha1"` | API version for Argo Rollouts integration |
 | shredder.EnableKarpenterDisruptionDetection | bool | `false` | Enable Karpenter disruption detection for node lifecycle management |
 | shredder.EnableKarpenterDriftDetection | bool | `false` | Enable Karpenter drift detection for node lifecycle management |
 | shredder.EnableNodeLabelDetection | bool | `false` | Enable detection of nodes based on specific labels |
+| shredder.EvictionLoopDuration | string | `""` | Duration for how long the scheduled window stays active after the schedule triggers. Only used when EvictionLoopSchedule is set. Supports compound durations with hours and minutes (e.g., "10h5m", "30m", "160h"). Example: "10h" (window stays active for 10 hours), "30m" (window stays active for 30 minutes). |
 | shredder.EvictionLoopInterval | string | `"1h"` | How often to run the main eviction loop |
+| shredder.EvictionLoopSchedule | string | `""` | Optional cron schedule for when eviction operations are allowed. If set, parking and shredding operations will only occur during the scheduled time window. Supports standard cron syntax and macros (@yearly, @monthly, @weekly, @daily, @hourly). Example: "@daily" (runs at midnight UTC), "0 2 * * *" (runs at 2 AM UTC daily). When omitted, operations run continuously. |
 | shredder.EvictionSafetyCheck | bool | `true` | Controls whether to perform safety checks before force eviction |
 | shredder.ExpiresOnLabel | string | `"shredder.ethos.adobe.net/parked-node-expires-on"` | Label used to track when a parked node expires |
 | shredder.ExtraParkingLabels | object | `{}` | Additional labels to apply to nodes and pods during parking |

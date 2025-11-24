@@ -82,6 +82,26 @@ func (h *Handler) Run() error {
 	metrics.ShredderPodForceToEvictTime.Reset()
 	metrics.ShredderPodErrorsTotal.Reset()
 
+	// Check if schedule is configured and if we're within the active window
+	if h.appContext.Config.HasEvictionLoopSchedule() {
+		sched, err := h.appContext.Config.GetEvictionLoopSchedule()
+		if err != nil {
+			h.logger.WithError(err).Error("Failed to parse EvictionLoopSchedule, skipping eviction loop")
+			loopTimer.ObserveDuration()
+			return err
+		}
+
+		if sched != nil {
+			now := time.Now().UTC()
+			if !sched.IsActive(now) {
+				h.logger.Infof("Outside of operation schedule (schedule: %s, duration: %s), skipping eviction loop", h.appContext.Config.EvictionLoopSchedule, h.appContext.Config.EvictionLoopDuration)
+				loopTimer.ObserveDuration()
+				return nil
+			}
+			h.logger.Debugf("Within operation schedule window (schedule: %s, duration: %s), proceeding with eviction loop", h.appContext.Config.EvictionLoopSchedule, h.appContext.Config.EvictionLoopDuration)
+		}
+	}
+
 	h.logger.Infof("Starting eviction loop")
 
 	// First, scan for drifted Karpenter node claims and label their nodes (if enabled)

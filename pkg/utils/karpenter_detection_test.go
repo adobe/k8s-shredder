@@ -278,7 +278,7 @@ func TestLabelDriftedNodes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create fake Kubernetes client
-			fakeClient := fake.NewSimpleClientset()
+			fakeClient := fake.NewClientset()
 
 			// Add nodes to the fake client if they have node names
 			for _, nodeClaim := range tt.driftedNodeClaims {
@@ -560,7 +560,7 @@ func TestLabelDisruptedNodes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create fake Kubernetes client
-			fakeClient := fake.NewSimpleClientset()
+			fakeClient := fake.NewClientset()
 
 			// Add nodes to the fake client if they have node names
 			for _, nodeClaim := range tt.disruptedNodeClaims {
@@ -602,7 +602,7 @@ func TestProcessDriftedKarpenterNodes(t *testing.T) {
 					UpgradeStatusLabel: "upgrade-status",
 					ParkingReasonLabel: "parked-reason",
 				},
-				K8sClient:        fake.NewSimpleClientset(),
+				K8sClient:        fake.NewClientset(),
 				DynamicK8SClient: &fakeDynamicClient{},
 				dryRun:           false,
 			},
@@ -617,7 +617,7 @@ func TestProcessDriftedKarpenterNodes(t *testing.T) {
 					MaxParkedNodes:     "5",
 					ParkingReasonLabel: "parked-reason",
 				},
-				K8sClient:        fake.NewSimpleClientset(),
+				K8sClient:        fake.NewClientset(),
 				DynamicK8SClient: &fakeDynamicClientWithDriftedClaims{},
 				dryRun:           true,
 			},
@@ -631,7 +631,7 @@ func TestProcessDriftedKarpenterNodes(t *testing.T) {
 					UpgradeStatusLabel: "upgrade-status",
 					ParkingReasonLabel: "parked-reason",
 				},
-				K8sClient:        fake.NewSimpleClientset(),
+				K8sClient:        fake.NewClientset(),
 				DynamicK8SClient: &fakeDynamicClientWithError{},
 				dryRun:           false,
 			},

@@ -11,10 +11,10 @@ update_go_copyright_year() {
     
     # Check if file has a copyright header
     if head -n3 "$file" | grep -q "Copyright.*20[0-9]\{2\}"; then
-        # Update the year to current year
+        # Update the year to current year in copyright line only
         echo "Processing file: $file"
-        # Now do the replacement
-        sed "s/202[0-9]/$CURRENT_YEAR/g" "$file" > "$temp_file"
+        # Only replace year in Copyright lines, not throughout entire file
+        sed "s/^Copyright 202[0-9]/Copyright $CURRENT_YEAR/" "$file" > "$temp_file"
     else
         # Add copyright header if missing
         echo "// Copyright $CURRENT_YEAR Adobe. All rights reserved." > "$temp_file"

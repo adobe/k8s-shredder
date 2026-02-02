@@ -8,7 +8,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 <p align="center">
-  <img src="docs/shredder-firefly.png" alt="K8s-Shredder project">
+  <img src="docs/shredder_firefly.png" alt="K8s-Shredder project">
 </p>
 
 A common issue that kubernetes operators run into is how to balance the requirements of long-running workloads with the need to periodically cycle through worker nodes (e.g. for a kubernetes upgrade or configuration change).  Stateful set workloads (kafka, zookeeper, 

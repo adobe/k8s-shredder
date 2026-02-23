@@ -31,7 +31,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: goreleaser/goreleaser-action@v6  # run goreleaser
+      - uses: goreleaser/goreleaser-action@v7  # run goreleaser
         with:
           version: latest
           args: release --clean

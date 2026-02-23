@@ -23,7 +23,7 @@ jobs:
           # version: v1.46
           args: -v --timeout 5m --no-config ./...
       - name: Install k8s Kind Cluster
-        uses: helm/kind-action@v1.13.0
+        uses: helm/kind-action@v1.14.0
         with:
           install_only: true
           version: v0.29.0
@@ -52,7 +52,7 @@ jobs:
           # version: v1.46
           args: -v --timeout 5m --no-config ./...
       - name: Install k8s Kind Cluster
-        uses: helm/kind-action@v1.13.0
+        uses: helm/kind-action@v1.14.0
         with:
           install_only: true
           version: v0.29.0
@@ -81,7 +81,7 @@ jobs:
           # version: v1.46
           args: -v --timeout 5m --no-config ./...
       - name: Install k8s Kind Cluster
-        uses: helm/kind-action@v1.13.0
+        uses: helm/kind-action@v1.14.0
         with:
           install_only: true
           version: v0.29.0

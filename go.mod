@@ -5,7 +5,7 @@ go 1.26.0
 toolchain go1.26.2
 
 require (
-	github.com/fsnotify/fsnotify v1.9.0
+	github.com/fsnotify/fsnotify v1.10.0
 	github.com/go-co-op/gocron/v2 v2.21.1
 	github.com/google/uuid v1.6.0
 	github.com/pkg/errors v0.9.1

@@ -21,7 +21,7 @@ jobs:
         with:
           # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
           # version: v1.46
-          args: -v --timeout 5m --no-config ./...
+          args: -v --timeout 5m ./...
       - name: Install k8s Kind Cluster
         uses: helm/kind-action@v1.14.0
         with:
@@ -50,7 +50,7 @@ jobs:
         with:
           # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
           # version: v1.46
-          args: -v --timeout 5m --no-config ./...
+          args: -v --timeout 5m ./...
       - name: Install k8s Kind Cluster
         uses: helm/kind-action@v1.14.0
         with:
@@ -79,7 +79,7 @@ jobs:
         with:
           # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
           # version: v1.46
-          args: -v --timeout 5m --no-config ./...
+          args: -v --timeout 5m ./...
       - name: Install k8s Kind Cluster
         uses: helm/kind-action@v1.14.0
         with:

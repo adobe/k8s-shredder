@@ -1,4 +1,6 @@
-linters-settings:
-  govet:
-    disable:
-      - inline
+version: "2"
+linters:
+  settings:
+    govet:
+      disable:
+        - inline

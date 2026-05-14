@@ -1,6 +1,9 @@
 ---
 name: Lint and Test Helm Chart
 on: pull_request
+permissions:
+  contents: read
+
 jobs:
   lint-test:
     runs-on: ubuntu-latest

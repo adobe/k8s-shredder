@@ -2,7 +2,7 @@ module github.com/adobe/k8s-shredder
 
 go 1.26.0
 
-toolchain go1.26.3
+toolchain go1.26.4
 
 require (
 	github.com/fsnotify/fsnotify v1.10.1

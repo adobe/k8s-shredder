@@ -245,6 +245,7 @@ func run(cmd *cobra.Command, args []string) {
 		gocron.NewTask(
 			h.Run,
 		),
+		gocron.WithSingletonMode(gocron.LimitModeReschedule),
 	)
 
 	if err != nil {

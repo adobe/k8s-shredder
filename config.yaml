@@ -44,3 +44,10 @@ EvictionSafetyCheck: true  # Controls whether to perform safety checks before fo
 
 # Parking reason tracking
 ParkingReasonLabel: shredder.ethos.adobe.net/parked-reason  # Label used to track why a node or pod was parked
+EnableLeaderElection: false
+LeaderElectionLockName: k8s-shredder-leader-election
+LeaderElectionNamespace: k8s-shredder
+LeaderElectionID: ""  # Will auto-detect from pod hostname
+LeaderElectionLeaseDuration: 15s
+LeaderElectionRenewDeadline: 10s
+LeaderElectionRetryPeriod: 2s

@@ -143,6 +143,11 @@ kubectl apply -f "${test_dir}/prometheus_stuffs_karpenter.yaml"
 echo "KIND: deploying Argo Rollouts CRD..."
 kubectl apply -f https://raw.githubusercontent.com/argoproj/argo-rollouts/v1.7.2/manifests/crds/rollout-crd.yaml
 
+echo "Waiting for Argo Rollouts CRD to become established..."
+until [ "$(kubectl get crd rollouts.argoproj.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}' 2>/dev/null)" = "True" ]; do
+    sleep 2
+done
+
 echo "KIND: deploying test applications..."
 kubectl apply -f "${test_dir}/test_apps.yaml"
 

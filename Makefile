@@ -40,7 +40,7 @@ lint: ## Lint go code and YAML files
 	@hash golangci-lint 2>/dev/null && { \
 		echo "Checking go code style..."; \
 		echo "Run "make format" in case of failures!"; \
-		golangci-lint run -v --timeout 5m --no-config ./... ; \
+		golangci-lint run -v --timeout 5m ./... ; \
 		echo "Go code style OK!" ; \
 	} || { \
 		echo >&2 "[WARN] I require golangci-lint but it's not installed (see https://github.com/golangci/golangci-lint). Skipping lint."; \

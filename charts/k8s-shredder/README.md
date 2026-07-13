@@ -23,6 +23,18 @@ a novel way of dealing with kubernetes nodes blocked from draining
 | dryRun | bool | `false` | Enable dry-run mode - when true, k8s-shredder will log actions but not execute them |
 | environmentVars | list | `[]` | Additional environment variables to set in the container |
 | fullnameOverride | string | `""` | Override the full name used for resources |
+| grafanaDashboard | object | `{"enabled":false,"folder":"","labelKey":"grafana_dashboard","labelValue":"1","labels":{}}` | Grafana dashboard configuration |
+| grafanaDashboard.enabled | bool | `false` | Create a ConfigMap containing a sample Grafana dashboard for k8s-shredder metrics. Auto-discovered by Grafana's dashboard sidecar (e.g. kube-prometheus-stack's grafana.sidecar.dashboards), if one is watching for it. Has no effect otherwise. |
+| grafanaDashboard.folder | string | `""` | Optional Grafana folder to place the dashboard under (requires sidecar folder annotation support, e.g. kube-prometheus-stack's grafana.sidecar.dashboards.folderAnnotation) |
+| grafanaDashboard.labelKey | string | `"grafana_dashboard"` | Label key applied to the ConfigMap for the Grafana sidecar to discover it (must match your Grafana sidecar's configured label key, e.g. `grafana_dashboard` for kube-prometheus-stack defaults) |
+| grafanaDashboard.labelValue | string | `"1"` | Label value applied to the ConfigMap for the Grafana sidecar to discover it |
+| grafanaDashboard.labels | object | `{}` | Additional labels for the ConfigMap |
+| grafanaDatasource | object | `{"enabled":false,"isDefault":false,"labelKey":"grafana_datasource","labelValue":"1","url":""}` | Grafana datasource configuration. The dashboard's panels (see grafanaDashboard) all reference a |
+| grafanaDatasource.enabled | bool | `false` | Create a ConfigMap provisioning a Prometheus datasource in Grafana (uid: prometheus, matching the dashboard's panel references). Auto-discovered by Grafana's datasource sidecar (e.g. kube-prometheus-stack's grafana.sidecar.datasources), if one is watching for it. Has no effect otherwise. |
+| grafanaDatasource.isDefault | bool | `false` | Whether this datasource should be set as Grafana's default |
+| grafanaDatasource.labelKey | string | `"grafana_datasource"` | Label key applied to the ConfigMap for the Grafana sidecar to discover it (must match your Grafana sidecar's configured label key, e.g. `grafana_datasource` for kube-prometheus-stack defaults) |
+| grafanaDatasource.labelValue | string | `"1"` | Label value applied to the ConfigMap for the Grafana sidecar to discover it |
+| grafanaDatasource.url | string | `""` | URL of the Prometheus instance scraping k8s-shredder (required if enabled), e.g. http://prometheus-operated.monitoring.svc:9090 |
 | image | object | `{"pullPolicy":"IfNotPresent","registry":"ghcr.io/adobe/k8s-shredder","tag":"latest"}` | Container image configuration |
 | image.pullPolicy | string | `"IfNotPresent"` | Image pull policy - IfNotPresent, Always, or Never |
 | image.registry | string | `"ghcr.io/adobe/k8s-shredder"` | Container registry where the k8s-shredder image is hosted |

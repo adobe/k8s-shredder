@@ -159,6 +159,32 @@ podMonitor:
   honorLabels: true
   # -- Metric relabeling configuration
   relabelings: []
+# -- Grafana dashboard configuration
+grafanaDashboard:
+  # -- Create a ConfigMap containing a sample Grafana dashboard for k8s-shredder metrics. Auto-discovered by Grafana's dashboard sidecar (e.g. kube-prometheus-stack's grafana.sidecar.dashboards), if one is watching for it. Has no effect otherwise.
+  enabled: false
+  # -- Label key applied to the ConfigMap for the Grafana sidecar to discover it (must match your Grafana sidecar's configured label key, e.g. `grafana_dashboard` for kube-prometheus-stack defaults)
+  labelKey: grafana_dashboard
+  # -- Label value applied to the ConfigMap for the Grafana sidecar to discover it
+  labelValue: '1'
+  # -- Optional Grafana folder to place the dashboard under (requires sidecar folder annotation support, e.g. kube-prometheus-stack's grafana.sidecar.dashboards.folderAnnotation)
+  folder: ''
+  # -- Additional labels for the ConfigMap
+  labels: {}
+# -- Grafana datasource configuration. The dashboard's panels (see grafanaDashboard) all reference a
+# -- datasource with uid "prometheus" - enabling this provisions one pointing at your Prometheus, so the
+# -- dashboard actually has something to query instead of showing "Datasource prometheus not found".
+grafanaDatasource:
+  # -- Create a ConfigMap provisioning a Prometheus datasource in Grafana (uid: prometheus, matching the dashboard's panel references). Auto-discovered by Grafana's datasource sidecar (e.g. kube-prometheus-stack's grafana.sidecar.datasources), if one is watching for it. Has no effect otherwise.
+  enabled: false
+  # -- URL of the Prometheus instance scraping k8s-shredder (required if enabled), e.g. http://prometheus-operated.monitoring.svc:9090
+  url: ''
+  # -- Label key applied to the ConfigMap for the Grafana sidecar to discover it (must match your Grafana sidecar's configured label key, e.g. `grafana_datasource` for kube-prometheus-stack defaults)
+  labelKey: grafana_datasource
+  # -- Label value applied to the ConfigMap for the Grafana sidecar to discover it
+  labelValue: '1'
+  # -- Whether this datasource should be set as Grafana's default
+  isDefault: false
 # -- Priority class for pod scheduling - system-cluster-critical ensures high priority
 priorityClassName: system-cluster-critical
 # -- Topology spread constraints to control pod distribution across failure domains

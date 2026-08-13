@@ -21,4 +21,7 @@ rules:
 - apiGroups: [ "karpenter.sh" ]
   resources: [ nodeclaims ]
   verbs: [ get, list, watch ]
+- apiGroups: [ "coordination.k8s.io" ]
+  resources: [ leases ]
+  verbs: [ get, list, watch, create, update, patch ]
 {{ end }}

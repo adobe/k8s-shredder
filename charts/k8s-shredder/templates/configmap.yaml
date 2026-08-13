@@ -34,3 +34,10 @@ data:
     EvictionSafetyCheck: {{.Values.shredder.EvictionSafetyCheck}}
     ParkingReasonLabel: "{{.Values.shredder.ParkingReasonLabel}}"
     ExtraParkingLabels: {{.Values.shredder.ExtraParkingLabels | toJson}}
+    EnableLeaderElection: {{.Values.shredder.EnableLeaderElection}}
+    LeaderElectionLockName: "{{.Values.shredder.LeaderElectionLockName}}"
+    LeaderElectionNamespace: "{{.Values.shredder.LeaderElectionNamespace}}"
+    LeaderElectionID: "{{.Values.shredder.LeaderElectionID}}"
+    LeaderElectionLeaseDuration: "{{.Values.shredder.LeaderElectionLeaseDuration}}"
+    LeaderElectionRenewDeadline: "{{.Values.shredder.LeaderElectionRenewDeadline}}"
+    LeaderElectionRetryPeriod: "{{.Values.shredder.LeaderElectionRetryPeriod}}"

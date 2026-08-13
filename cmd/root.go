@@ -12,6 +12,7 @@ governing permissions and limitations under the License.
 package cmd
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"time"
@@ -130,6 +131,13 @@ func discoverConfig() {
 	viper.SetDefault("ParkingReasonLabel", "shredder.ethos.adobe.net/parked-reason")
 	viper.SetDefault("EvictionLoopSchedule", "")
 	viper.SetDefault("EvictionLoopDuration", "")
+	viper.SetDefault("EnableLeaderElection", false)
+	viper.SetDefault("LeaderElectionLockName", "k8s-shredder-leader-election")
+	viper.SetDefault("LeaderElectionNamespace", "")
+	viper.SetDefault("LeaderElectionID", "")
+	viper.SetDefault("LeaderElectionLeaseDuration", 15*time.Second)
+	viper.SetDefault("LeaderElectionRenewDeadline", 10*time.Second)
+	viper.SetDefault("LeaderElectionRetryPeriod", 2*time.Second)
 
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -192,6 +200,13 @@ func parseConfig() {
 		"ExtraParkingLabels":                 cfg.ExtraParkingLabels,
 		"EvictionSafetyCheck":                cfg.EvictionSafetyCheck,
 		"ParkingReasonLabel":                 cfg.ParkingReasonLabel,
+		"EnableLeaderElection":               cfg.EnableLeaderElection,
+		"LeaderElectionLockName":             cfg.LeaderElectionLockName,
+		"LeaderElectionNamespace":            cfg.LeaderElectionNamespace,
+		"LeaderElectionID":                   cfg.LeaderElectionID,
+		"LeaderElectionLeaseDuration":        cfg.LeaderElectionLeaseDuration.String(),
+		"LeaderElectionRenewDeadline":        cfg.LeaderElectionRenewDeadline.String(),
+		"LeaderElectionRetryPeriod":          cfg.LeaderElectionRetryPeriod.String(),
 		"EvictionLoopSchedule":               cfg.EvictionLoopSchedule,
 		"EvictionLoopDuration":               cfg.EvictionLoopDuration,
 	}).Info("Loaded configuration")
@@ -228,42 +243,78 @@ func preRun(cmd *cobra.Command, args []string) {
 }
 
 func run(cmd *cobra.Command, args []string) {
-	var err error
-	scheduler, err = gocron.NewScheduler(gocron.WithLocation(time.UTC))
-	defer func() { _ = scheduler.Shutdown() }()
+	startScheduler := func() error {
+		var err error
+		scheduler, err = gocron.NewScheduler(gocron.WithLocation(time.UTC))
+		if err != nil {
+			return err
+		}
 
-	if err != nil {
-		log.Fatalf("Failed to create scheduler: %s", err)
+		h := handler.NewHandler(appContext)
+
+		job, err := scheduler.NewJob(
+			gocron.DurationJob(
+				cfg.EvictionLoopInterval,
+			),
+			gocron.NewTask(
+				h.Run,
+			),
+			gocron.WithSingletonMode(gocron.LimitModeReschedule),
+		)
+		if err != nil {
+			return err
+		}
+
+		log.Infof("Configured scheduler job with ID: %s", job.ID())
+
+		activeJobs := make([]uuid.UUID, 0)
+		for _, j := range scheduler.Jobs() {
+			activeJobs = append(activeJobs, j.ID())
+		}
+		log.Infoln("Active jobs:", activeJobs)
+
+		scheduler.Start()
+		log.Info("Scheduler started, happy shredding!")
+		return nil
 	}
 
-	h := handler.NewHandler(appContext)
+	if appContext.Config.EnableLeaderElection {
+		leaderCtx, cancel := context.WithCancel(appContext.Context)
+		defer cancel()
 
-	job, err := scheduler.NewJob(
-		gocron.DurationJob(
-			cfg.EvictionLoopInterval,
-		),
-		gocron.NewTask(
-			h.Run,
-		),
-		gocron.WithSingletonMode(gocron.LimitModeReschedule),
-	)
-
-	if err != nil {
-		log.Fatalf("Failed to configure scheduler's job: %s", err)
+		err := appContext.RunLeaderElection(
+			leaderCtx,
+			appContext.K8sClient,
+			appContext.Config,
+			func() {
+				err := startScheduler()
+				if err != nil {
+					log.Fatalf("Failed to start scheduler as leader: %s", err)
+				}
+			},
+			func() {
+				log.Error("Leadership lost, shutting down")
+				cancel()
+			},
+		)
+		if err != nil {
+			log.Fatalf("Leader election failed: %s", err)
+		}
+	} else {
+		if err := startScheduler(); err != nil {
+			log.Fatalf("Failed to create scheduler: %s", err)
+		}
+		<-appContext.Context.Done()
 	}
 
-	// each job has a unique id
-	log.Infof("Configured scheduler job with ID: %s", job.ID())
-
-	activeJobs := make([]uuid.UUID, 0)
-	for _, j := range scheduler.Jobs() {
-		activeJobs = append(activeJobs, j.ID())
+	if scheduler != nil {
+		if err := scheduler.StopJobs(); err != nil {
+			log.Errorf("Failed to stop running jobs: %s", err)
+		}
+		if err := scheduler.Shutdown(); err != nil {
+			log.Errorf("Failed to shutdown scheduler: %s", err)
+		}
 	}
-	log.Infoln("Active jobs:", activeJobs)
-
-	scheduler.Start()
-	log.Info("Scheduler started, happy shredding!")
-	select {}
 }
 
 func reset() {

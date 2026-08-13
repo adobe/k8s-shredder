@@ -1,0 +1,23 @@
+{{ if .Values.grafanaDatasource.enabled }}
+{{- if not .Values.grafanaDatasource.url }}
+{{- fail "grafanaDatasource.url is required when grafanaDatasource.enabled is true" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "k8s-shredder.fullname" . }}-grafana-datasource
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ include "k8s-shredder.labels" . | indent 4 }}
+    {{ .Values.grafanaDatasource.labelKey }}: {{ .Values.grafanaDatasource.labelValue | quote }}
+data:
+  k8s-shredder-datasource.yaml: |-
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        uid: prometheus
+        access: proxy
+        url: {{ .Values.grafanaDatasource.url | quote }}
+        isDefault: {{ .Values.grafanaDatasource.isDefault }}
+{{- end }}

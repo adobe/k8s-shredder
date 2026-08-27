@@ -844,9 +844,10 @@ func TestProcessStuckTerminatingNodeClaims(t *testing.T) {
 	t.Run("No stuck terminating node claims found", func(t *testing.T) {
 		appContext := &AppContext{
 			Config: config.Config{
-				UpgradeStatusLabel: "upgrade-status",
-				ParkingReasonLabel: "parked-reason",
-				ParkedNodeTTL:      1 * time.Hour,
+				UpgradeStatusLabel:           "upgrade-status",
+				ParkingReasonLabel:           "parked-reason",
+				ParkedNodeTTL:                1 * time.Hour,
+				KarpenterStuckTerminationTTL: 24 * time.Hour,
 			},
 			K8sClient:        fake.NewClientset(),
 			DynamicK8SClient: &fakeDynamicClient{},
@@ -869,14 +870,15 @@ func TestProcessStuckTerminatingNodeClaims(t *testing.T) {
 
 		appContext := &AppContext{
 			Config: config.Config{
-				UpgradeStatusLabel: "upgrade-status",
-				ExpiresOnLabel:     "expires-on",
-				ParkedByLabel:      "parked-by",
-				ParkedByValue:      "k8s-shredder",
-				ParkingReasonLabel: "parked-reason",
-				ParkedNodeTaint:    "upgrade-status=parked:NoSchedule",
-				MaxParkedNodes:     "5",
-				ParkedNodeTTL:      1 * time.Hour,
+				UpgradeStatusLabel:           "upgrade-status",
+				ExpiresOnLabel:               "expires-on",
+				ParkedByLabel:                "parked-by",
+				ParkedByValue:                "k8s-shredder",
+				ParkingReasonLabel:           "parked-reason",
+				ParkedNodeTaint:              "upgrade-status=parked:NoSchedule",
+				MaxParkedNodes:               "5",
+				ParkedNodeTTL:                1 * time.Hour,
+				KarpenterStuckTerminationTTL: 24 * time.Hour,
 			},
 			K8sClient:        fakeClient,
 			DynamicK8SClient: &fakeDynamicClientWithStuckTerminatingClaims{},
@@ -892,15 +894,55 @@ func TestProcessStuckTerminatingNodeClaims(t *testing.T) {
 
 		expiresOnUnix, err := strconv.ParseInt(updatedNode.Labels["expires-on"], 10, 64)
 		assert.NoError(t, err)
-		assert.True(t, time.Unix(expiresOnUnix, 0).Before(time.Now()), "a NodeClaim already stuck past ParkedNodeTTL should be parked with an already-expired expiry")
+		assert.True(t, time.Unix(expiresOnUnix, 0).Before(time.Now()), "a NodeClaim stuck since 2020 is still past ParkedNodeTTL=1h too, so it should be parked with an already-expired expiry")
+	})
+
+	t.Run("Stuck terminating node claim within ParkedNodeTTL grace gets a future expiry", func(t *testing.T) {
+		fakeClient := fake.NewClientset()
+		node := &v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "stuck-terminating-node-within-grace-1",
+			},
+		}
+		_, err := fakeClient.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
+		assert.NoError(t, err)
+
+		appContext := &AppContext{
+			Config: config.Config{
+				UpgradeStatusLabel:           "upgrade-status",
+				ExpiresOnLabel:               "expires-on",
+				ParkedByLabel:                "parked-by",
+				ParkedByValue:                "k8s-shredder",
+				ParkingReasonLabel:           "parked-reason",
+				ParkedNodeTaint:              "upgrade-status=parked:NoSchedule",
+				MaxParkedNodes:               "5",
+				ParkedNodeTTL:                168 * time.Hour,
+				KarpenterStuckTerminationTTL: 24 * time.Hour,
+			},
+			K8sClient:        fakeClient,
+			DynamicK8SClient: &fakeDynamicClientWithStuckTerminatingClaimsWithinGracePeriod{},
+			dryRun:           false,
+		}
+		logger := log.NewEntry(log.New())
+		err = ProcessStuckTerminatingNodeClaims(context.Background(), appContext, logger)
+		assert.NoError(t, err)
+
+		updatedNode, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "stuck-terminating-node-within-grace-1", metav1.GetOptions{})
+		assert.NoError(t, err)
+		assert.Equal(t, "parked", updatedNode.Labels["upgrade-status"])
+
+		expiresOnUnix, err := strconv.ParseInt(updatedNode.Labels["expires-on"], 10, 64)
+		assert.NoError(t, err)
+		assert.True(t, time.Unix(expiresOnUnix, 0).After(time.Now()), "a NodeClaim detected as stuck (deletionTimestamp older than KarpenterStuckTerminationTTL) but still within ParkedNodeTTL of its deletionTimestamp should get a future expiry, not an immediately-expired one")
 	})
 
 	t.Run("Error finding stuck terminating node claims", func(t *testing.T) {
 		appContext := &AppContext{
 			Config: config.Config{
-				UpgradeStatusLabel: "upgrade-status",
-				ParkingReasonLabel: "parked-reason",
-				ParkedNodeTTL:      1 * time.Hour,
+				UpgradeStatusLabel:           "upgrade-status",
+				ParkingReasonLabel:           "parked-reason",
+				ParkedNodeTTL:                1 * time.Hour,
+				KarpenterStuckTerminationTTL: 24 * time.Hour,
 			},
 			K8sClient:        fake.NewClientset(),
 			DynamicK8SClient: &fakeDynamicClientWithError{},
@@ -932,6 +974,16 @@ type fakeDynamicClientWithStuckTerminatingClaims struct{}
 
 func (f *fakeDynamicClientWithStuckTerminatingClaims) Resource(gvr schema.GroupVersionResource) dynamic.NamespaceableResourceInterface {
 	return &fakeNamespaceableResourceInterfaceWithStuckTerminatingClaims{}
+}
+
+// fakeDynamicClientWithStuckTerminatingClaimsWithinGracePeriod provides a NodeClaim whose
+// deletionTimestamp is older than a short detection threshold (KarpenterStuckTerminationTTL) but
+// still within the longer ParkedNodeTTL window, so it should be detected as stuck yet parked with
+// a future (not already-expired) expiry.
+type fakeDynamicClientWithStuckTerminatingClaimsWithinGracePeriod struct{}
+
+func (f *fakeDynamicClientWithStuckTerminatingClaimsWithinGracePeriod) Resource(gvr schema.GroupVersionResource) dynamic.NamespaceableResourceInterface {
+	return &fakeNamespaceableResourceInterfaceWithStuckTerminatingClaimsWithinGracePeriod{}
 }
 
 // fakeDynamicClientWithError returns errors for testing
@@ -1132,6 +1184,33 @@ func (f *fakeNamespaceableResourceInterfaceWithStuckTerminatingClaims) Apply(ctx
 
 func (f *fakeNamespaceableResourceInterfaceWithStuckTerminatingClaims) ApplyStatus(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions) (*unstructured.Unstructured, error) {
 	return nil, nil
+}
+
+// fakeNamespaceableResourceInterfaceWithStuckTerminatingClaimsWithinGracePeriod embeds the
+// regular stuck-terminating fixture and only overrides List, so it only needs to provide a
+// NodeClaim with a relative (rather than hardcoded) deletionTimestamp.
+type fakeNamespaceableResourceInterfaceWithStuckTerminatingClaimsWithinGracePeriod struct {
+	fakeNamespaceableResourceInterfaceWithStuckTerminatingClaims
+}
+
+func (f *fakeNamespaceableResourceInterfaceWithStuckTerminatingClaimsWithinGracePeriod) List(ctx context.Context, opts metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+	stuckNodeClaim := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name":              "stuck-terminating-nodeclaim-within-grace-1",
+				"namespace":         "default",
+				"deletionTimestamp": time.Now().Add(-30 * time.Hour).Format(time.RFC3339),
+			},
+			"status": map[string]interface{}{
+				"nodeName":   "stuck-terminating-node-within-grace-1",
+				"providerID": "aws://us-west-2a/i-0bbbbbbbbbbbbbbbb",
+			},
+		},
+	}
+
+	return &unstructured.UnstructuredList{
+		Items: []unstructured.Unstructured{stuckNodeClaim},
+	}, nil
 }
 
 // fakeNamespaceableResourceInterfaceWithError returns errors

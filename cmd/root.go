@@ -120,6 +120,7 @@ func discoverConfig() {
 	viper.SetDefault("EnableKarpenterDriftDetection", false)
 	viper.SetDefault("EnableKarpenterDisruptionDetection", false)
 	viper.SetDefault("EnableKarpenterStuckTerminationDetection", false)
+	viper.SetDefault("KarpenterStuckTerminationTTL", time.Hour*24)
 	viper.SetDefault("ParkedByLabel", "shredder.ethos.adobe.net/parked-by")
 	viper.SetDefault("ParkedByValue", "k8s-shredder")
 	viper.SetDefault("ParkedNodeTaint", "shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule")
@@ -185,6 +186,7 @@ func parseConfig() {
 		"EnableKarpenterDriftDetection":            cfg.EnableKarpenterDriftDetection,
 		"EnableKarpenterDisruptionDetection":       cfg.EnableKarpenterDisruptionDetection,
 		"EnableKarpenterStuckTerminationDetection": cfg.EnableKarpenterStuckTerminationDetection,
+		"KarpenterStuckTerminationTTL":             cfg.KarpenterStuckTerminationTTL.String(),
 		"ParkedByLabel":                            cfg.ParkedByLabel,
 		"ParkedByValue":                            cfg.ParkedByValue,
 		"ParkedNodeTaint":                          cfg.ParkedNodeTaint,

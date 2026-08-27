@@ -55,13 +55,20 @@ type Config struct {
 	// EnableKarpenterDisruptionDetection controls whether to scan for disrupted Karpenter NodeClaims and automatically label their nodes
 	EnableKarpenterDisruptionDetection bool
 	// EnableKarpenterStuckTerminationDetection controls whether to scan for Karpenter NodeClaims
-	// that have had deletionTimestamp set for longer than ParkedNodeTTL while the node still
-	// exists, and automatically label their nodes for force eviction. This catches nodes stuck
-	// terminating for any reason (blocked pod eviction, stuck cloud-provider instance
+	// that have had deletionTimestamp set for longer than KarpenterStuckTerminationTTL while the
+	// node still exists, and automatically label their nodes for force eviction. This catches
+	// nodes stuck terminating for any reason (blocked pod eviction, stuck cloud-provider instance
 	// termination, etc.), independent of whether a Drifted/DisruptionReason condition is still
 	// present - Karpenter clears those once deletion starts, so drift/disruption detection alone
 	// can miss this failure mode entirely.
 	EnableKarpenterStuckTerminationDetection bool
+	// KarpenterStuckTerminationTTL is the detection threshold for stuck-termination detection: a
+	// NodeClaim is considered stuck once its deletionTimestamp is older than this. It's
+	// intentionally independent of ParkedNodeTTL, which continues to control the backdated
+	// parking expiry (deletionTimestamp + ParkedNodeTTL) once a node is flagged - conflating the
+	// two meant detection could never fire before the backdated expiry had already passed,
+	// forcing every stuck node straight to zero-grace-period eviction.
+	KarpenterStuckTerminationTTL time.Duration
 	// ParkedByLabel is used for identifying which component parked the node
 	ParkedByLabel string
 	// ParkedByValue is the value to set for the ParkedByLabel

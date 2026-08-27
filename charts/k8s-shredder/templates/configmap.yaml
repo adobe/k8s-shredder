@@ -26,6 +26,7 @@ data:
     EnableKarpenterDriftDetection: {{.Values.shredder.EnableKarpenterDriftDetection}}
     EnableKarpenterDisruptionDetection: {{.Values.shredder.EnableKarpenterDisruptionDetection}}
     EnableKarpenterStuckTerminationDetection: {{.Values.shredder.EnableKarpenterStuckTerminationDetection}}
+    KarpenterStuckTerminationTTL: "{{.Values.shredder.KarpenterStuckTerminationTTL}}"
     ParkedByLabel: "{{.Values.shredder.ParkedByLabel}}"
     ParkedByValue: "{{.Values.shredder.ParkedByValue}}"
     ParkedNodeTaint: "{{.Values.shredder.ParkedNodeTaint}}"

@@ -251,8 +251,8 @@ func FindDisruptedKarpenterNodeClaims(ctx context.Context, dynamicClient dynamic
 }
 
 // FindStuckTerminatingNodeClaims scans the kubernetes cluster for Karpenter NodeClaims that have
-// had `metadata.deletionTimestamp` set for longer than cfg.ParkedNodeTTL but whose underlying
-// node still exists. This catches nodes that Karpenter decided to disrupt (for drift,
+// had `metadata.deletionTimestamp` set for longer than cfg.KarpenterStuckTerminationTTL but whose
+// underlying node still exists. This catches nodes that Karpenter decided to disrupt (for drift,
 // consolidation, or any other reason) and never finished terminating - regardless of whether a
 // blocked pod eviction, a stuck cloud-provider instance termination, or anything else is the
 // cause, and regardless of whether the NodeClaim still carries a "Drifted"/"DisruptionReason"
@@ -285,7 +285,7 @@ func FindStuckTerminatingNodeClaims(ctx context.Context, dynamicClient dynamic.I
 	for _, item := range nodeClaimList.Items {
 		nodeClaim := item.Object
 
-		isStuck, deletionTimestamp, err := isNodeClaimStuckTerminating(nodeClaim, now, cfg.ParkedNodeTTL)
+		isStuck, deletionTimestamp, err := isNodeClaimStuckTerminating(nodeClaim, now, cfg.KarpenterStuckTerminationTTL)
 		if err != nil {
 			logger.WithField("nodeclaim", item.GetName()).WithError(err).Warn("Failed to check stuck termination status, skipping")
 			continue
@@ -682,9 +682,11 @@ func ProcessDisruptedKarpenterNodes(ctx context.Context, appContext *AppContext,
 // LabelStuckTerminatingNodes labels nodes associated with stuck terminating NodeClaims with the
 // configured labels. Unlike LabelDriftedNodes/LabelDisruptedNodes, each node gets its own
 // ParkedSince set to the NodeClaim's deletionTimestamp, so the parking TTL is computed from when
-// termination actually started rather than from now - a node already stuck past ParkedNodeTTL
-// will have an already-expired ExpiresOnLabel and be force-evicted on the very next eviction
-// loop pass instead of waiting out a fresh TTL.
+// termination actually started rather than from now. The expiry is still deletionTimestamp +
+// ParkedNodeTTL (unrelated to the KarpenterStuckTerminationTTL used to detect it as stuck in the
+// first place) - so as long as ParkedNodeTTL is larger than KarpenterStuckTerminationTTL, a
+// newly-detected node still gets real, PDB-respecting grace time before force eviction, rather
+// than an immediately-expired ExpiresOnLabel.
 func LabelStuckTerminatingNodes(ctx context.Context, k8sClient kubernetes.Interface, stuckNodeClaims []KarpenterNodeClaimInfo, cfg config.Config, dryRun bool, logger *log.Entry) error {
 	logger = logger.WithField("function", "LabelStuckTerminatingNodes")
 

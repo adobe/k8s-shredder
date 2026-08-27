@@ -56,8 +56,10 @@ shredder:
   EnableKarpenterDriftDetection: false
   # -- Enable Karpenter disruption detection for node lifecycle management
   EnableKarpenterDisruptionDetection: false
-  # -- Enable detection of Karpenter NodeClaims stuck terminating (deletionTimestamp set longer than ParkedNodeTTL, node still present) for node lifecycle management
+  # -- Enable detection of Karpenter NodeClaims stuck terminating (deletionTimestamp set longer than KarpenterStuckTerminationTTL, node still present) for node lifecycle management
   EnableKarpenterStuckTerminationDetection: false
+  # -- How long a NodeClaim's deletionTimestamp can be set before it's considered stuck terminating. Independent of ParkedNodeTTL, which still controls the backdated parking expiry once a node is flagged
+  KarpenterStuckTerminationTTL: 24h
   # -- Label to track which component parked a node
   ParkedByLabel: shredder.ethos.adobe.net/parked-by
   # -- Value set in the ParkedByLabel to identify k8s-shredder as the parking agent

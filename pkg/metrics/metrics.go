@@ -120,6 +120,14 @@ var (
 		},
 	)
 
+	// ShredderKarpenterStuckTerminatingNodesTotal = Total number of Karpenter NodeClaims found stuck terminating
+	ShredderKarpenterStuckTerminatingNodesTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "shredder_karpenter_stuck_terminating_nodes_total",
+			Help: "Total number of Karpenter NodeClaims found with deletionTimestamp set past ParkedNodeTTL while the node still exists",
+		},
+	)
+
 	// ShredderKarpenterNodesParkedTotal = Total number of Karpenter nodes successfully parked
 	ShredderKarpenterNodesParkedTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{

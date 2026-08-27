@@ -56,6 +56,7 @@ The following options can be used to customize the k8s-shredder controller:
 | ArgoRolloutsAPIVersion             | "v1alpha1"                                                  | API version from `argoproj.io` API group to be used while handling Argo Rollouts objects             |
 | EnableKarpenterDriftDetection      | false                                                       | Controls whether to scan for drifted Karpenter NodeClaims and automatically label their nodes        |
 | EnableKarpenterDisruptionDetection | false                                                       | Controls whether to scan for disrupted Karpenter NodeClaims and automatically label their nodes      |
+| EnableKarpenterStuckTerminationDetection | false                                                  | Controls whether to scan for Karpenter NodeClaims stuck terminating (deletionTimestamp set longer than ParkedNodeTTL, node still present) and automatically label their nodes for force eviction |
 | ParkedByLabel                      | "shredder.ethos.adobe.net/parked-by"                        | Label used to identify which component parked the node                                               |
 | ParkedNodeTaint                    | "shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule" | Taint to apply to parked nodes in format key=value:effect                                            |
 | EnableNodeLabelDetection           | false                                                       | Controls whether to scan for nodes with specific labels and automatically park them                  |
@@ -63,7 +64,7 @@ The following options can be used to customize the k8s-shredder controller:
 | MaxParkedNodes                     | "0"                                                         | Maximum number of nodes that can be parked simultaneously. Can be an integer (e.g., "5") or percentage (e.g., "20%"). Set to "0" (default) for no limit. |
 | ExtraParkingLabels                 | {}                                                          | (Optional) Map of extra labels to apply to nodes and pods during parking. Example: `{ "example.com/owner": "infrastructure" }` |
 | EvictionSafetyCheck                | true                                                        | Controls whether to perform safety checks before force eviction. If true, nodes will be unparked if pods don't have required parking labels. |
-| ParkingReasonLabel                 | "shredder.ethos.adobe.net/parked-reason"                   | Label used to track why a node or pod was parked (values: node-label, karpenter-drifted, karpenter-disrupted) |
+| ParkingReasonLabel                 | "shredder.ethos.adobe.net/parked-reason"                   | Label used to track why a node or pod was parked (values: node-label, karpenter-drift, karpenter-disruption, karpenter-stuck-terminating) |
 
 ### How it works
 
@@ -97,7 +98,7 @@ This integration allows k8s-shredder to automatically handle node lifecycle mana
 
 k8s-shredder includes an optional feature for automatic detection of disrupted Karpenter NodeClaims. This feature is disabled by default, but can be enabled by setting `EnableKarpenterDisruptionDetection` to `true`. When enabled, at the beginning of each eviction loop, the controller will:
 
-1. Scan the Kubernetes cluster for Karpenter NodeClaims that are marked as disrupted (e.g., "Disrupting", "Terminating", "Empty", "Underutilized")
+1. Scan the Kubernetes cluster for Karpenter NodeClaims with a `DisruptionReason` condition set to `True` (cause reported in the condition's `reason` field, e.g. "Drifted", "Empty", "Underutilized") or an `InstanceTerminating` condition set to `True`
 2. Identify the nodes associated with these disrupted NodeClaims
 3. Automatically process these nodes by:
 
@@ -110,6 +111,26 @@ k8s-shredder includes an optional feature for automatic detection of disrupted K
    - **Tainting** the nodes with the configured `ParkedNodeTaint`
 
 This integration ensures that nodes undergoing disruption as part of bin-packing operations have all pods evicted in a reasonable amount of time, preventing them from getting stuck due to blocking Pod Disruption Budgets (PDBs). It complements the drift detection feature by handling nodes that are actively being disrupted by Karpenter's consolidation and optimization processes.
+
+#### Karpenter Stuck Termination Detection
+
+Both drift and disruption detection above rely on Karpenter still reporting a `Drifted` or `DisruptionReason`/`InstanceTerminating` condition on the NodeClaim at the moment k8s-shredder scans it. In practice, Karpenter clears those conditions as soon as it sets `deletionTimestamp` and starts terminating the NodeClaim - so if termination then stalls (a blocked pod eviction, a stuck cloud-provider instance termination, or anything else), the NodeClaim can sit in that state indefinitely with no condition left for either detector to see, and neither one will ever catch it.
+
+k8s-shredder includes an optional feature to close that gap by watching `deletionTimestamp` itself rather than any condition. This feature is disabled by default, but can be enabled by setting `EnableKarpenterStuckTerminationDetection` to `true`. When enabled, at the beginning of each eviction loop, the controller will:
+
+1. Scan the Kubernetes cluster for Karpenter NodeClaims that have `metadata.deletionTimestamp` set for longer than `ParkedNodeTTL`, while the associated node still exists
+2. Identify the nodes associated with these stuck terminating NodeClaims
+3. Automatically process these nodes by:
+
+   - **Labeling** nodes and their non-DaemonSet pods with:
+       - `UpgradeStatusLabel` (set to "parked")
+       - `ExpiresOnLabel` - set using the NodeClaim's `deletionTimestamp` as the reference point (`deletionTimestamp + ParkedNodeTTL`), not the time it was discovered, so a node already stuck past `ParkedNodeTTL` is treated as already expired
+       - `ParkedByLabel` (set to "k8s-shredder")
+       - Any labels specified in `ExtraParkingLabels`
+   - **Cordoning** the nodes to prevent new pod scheduling
+   - **Tainting** the nodes with the configured `ParkedNodeTaint`
+
+Because the parking clock is backdated to when termination actually started, a NodeClaim already stuck well past `ParkedNodeTTL` gets its pods force-evicted on the very next eviction loop pass instead of waiting out another full TTL window. This complements drift and disruption detection by catching the specific failure mode where a node started terminating for any reason and then never finished, independent of which condition (if any) is still present on the NodeClaim.
 
 #### Labeled Node Detection
 
@@ -166,7 +187,7 @@ Eligible nodes are **always sorted by creation timestamp (oldest first)**, regar
 - **Predictable capacity**: You can anticipate which nodes will be parked next when slots become available
 - **Deterministic ordering**: Even when parking all eligible nodes (no limit), they are processed in a predictable order
 
-This sorting behavior applies to both Karpenter drift detection and node label detection features. When multiple nodes are eligible for parking:
+This sorting behavior applies to Karpenter drift detection, Karpenter disruption detection, Karpenter stuck termination detection, and node label detection features. When multiple nodes are eligible for parking:
 - **With no limit** (`MaxParkedNodes: "0"`): All nodes are parked in order from oldest to newest
 - **With a limit**: Only the oldest nodes up to the limit are parked; newer nodes wait for the next eviction interval
 

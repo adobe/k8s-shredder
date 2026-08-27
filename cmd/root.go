@@ -119,6 +119,7 @@ func discoverConfig() {
 	viper.SetDefault("ArgoRolloutsAPIVersion", "v1alpha1")
 	viper.SetDefault("EnableKarpenterDriftDetection", false)
 	viper.SetDefault("EnableKarpenterDisruptionDetection", false)
+	viper.SetDefault("EnableKarpenterStuckTerminationDetection", false)
 	viper.SetDefault("ParkedByLabel", "shredder.ethos.adobe.net/parked-by")
 	viper.SetDefault("ParkedByValue", "k8s-shredder")
 	viper.SetDefault("ParkedNodeTaint", "shredder.ethos.adobe.net/upgrade-status=parked:NoSchedule")
@@ -171,29 +172,30 @@ func parseConfig() {
 	}
 
 	log.WithFields(log.Fields{
-		"EvictionLoopInterval":               cfg.EvictionLoopInterval.String(),
-		"ParkedNodeTTL":                      cfg.ParkedNodeTTL.String(),
-		"RollingRestartThreshold":            cfg.RollingRestartThreshold,
-		"UpgradeStatusLabel":                 cfg.UpgradeStatusLabel,
-		"ExpiresOnLabel":                     cfg.ExpiresOnLabel,
-		"NamespacePrefixSkipInitialEviction": cfg.NamespacePrefixSkipInitialEviction,
-		"RestartedAtAnnotation":              cfg.RestartedAtAnnotation,
-		"AllowEvictionLabel":                 cfg.AllowEvictionLabel,
-		"ToBeDeletedTaint":                   cfg.ToBeDeletedTaint,
-		"ArgoRolloutsAPIVersion":             cfg.ArgoRolloutsAPIVersion,
-		"EnableKarpenterDriftDetection":      cfg.EnableKarpenterDriftDetection,
-		"EnableKarpenterDisruptionDetection": cfg.EnableKarpenterDisruptionDetection,
-		"ParkedByLabel":                      cfg.ParkedByLabel,
-		"ParkedByValue":                      cfg.ParkedByValue,
-		"ParkedNodeTaint":                    cfg.ParkedNodeTaint,
-		"EnableNodeLabelDetection":           cfg.EnableNodeLabelDetection,
-		"NodeLabelsToDetect":                 cfg.NodeLabelsToDetect,
-		"MaxParkedNodes":                     cfg.MaxParkedNodes,
-		"ExtraParkingLabels":                 cfg.ExtraParkingLabels,
-		"EvictionSafetyCheck":                cfg.EvictionSafetyCheck,
-		"ParkingReasonLabel":                 cfg.ParkingReasonLabel,
-		"EvictionLoopSchedule":               cfg.EvictionLoopSchedule,
-		"EvictionLoopDuration":               cfg.EvictionLoopDuration,
+		"EvictionLoopInterval":                     cfg.EvictionLoopInterval.String(),
+		"ParkedNodeTTL":                            cfg.ParkedNodeTTL.String(),
+		"RollingRestartThreshold":                  cfg.RollingRestartThreshold,
+		"UpgradeStatusLabel":                       cfg.UpgradeStatusLabel,
+		"ExpiresOnLabel":                           cfg.ExpiresOnLabel,
+		"NamespacePrefixSkipInitialEviction":       cfg.NamespacePrefixSkipInitialEviction,
+		"RestartedAtAnnotation":                    cfg.RestartedAtAnnotation,
+		"AllowEvictionLabel":                       cfg.AllowEvictionLabel,
+		"ToBeDeletedTaint":                         cfg.ToBeDeletedTaint,
+		"ArgoRolloutsAPIVersion":                   cfg.ArgoRolloutsAPIVersion,
+		"EnableKarpenterDriftDetection":            cfg.EnableKarpenterDriftDetection,
+		"EnableKarpenterDisruptionDetection":       cfg.EnableKarpenterDisruptionDetection,
+		"EnableKarpenterStuckTerminationDetection": cfg.EnableKarpenterStuckTerminationDetection,
+		"ParkedByLabel":                            cfg.ParkedByLabel,
+		"ParkedByValue":                            cfg.ParkedByValue,
+		"ParkedNodeTaint":                          cfg.ParkedNodeTaint,
+		"EnableNodeLabelDetection":                 cfg.EnableNodeLabelDetection,
+		"NodeLabelsToDetect":                       cfg.NodeLabelsToDetect,
+		"MaxParkedNodes":                           cfg.MaxParkedNodes,
+		"ExtraParkingLabels":                       cfg.ExtraParkingLabels,
+		"EvictionSafetyCheck":                      cfg.EvictionSafetyCheck,
+		"ParkingReasonLabel":                       cfg.ParkingReasonLabel,
+		"EvictionLoopSchedule":                     cfg.EvictionLoopSchedule,
+		"EvictionLoopDuration":                     cfg.EvictionLoopDuration,
 	}).Info("Loaded configuration")
 
 	// Validate schedule configuration if provided

@@ -33,23 +33,26 @@ const (
 	NodeClaimResource   = "nodeclaims"
 
 	// Karpenter condition types
-	KarpenterDriftedCondition       = "Drifted"
-	KarpenterDisruptingCondition    = "Disrupting"
-	KarpenterTerminatingCondition   = "Terminating"
-	KarpenterEmptyCondition         = "Empty"
-	KarpenterUnderutilizedCondition = "Underutilized"
-	KarpenterTrueStatus             = "True"
+	KarpenterDriftedCondition             = "Drifted"
+	KarpenterDisruptionReasonCondition    = "DisruptionReason"
+	KarpenterInstanceTerminatingCondition = "InstanceTerminating"
+	KarpenterTrueStatus                   = "True"
 )
 
 // KarpenterNodeClaimInfo holds information about a Karpenter NodeClaim
 type KarpenterNodeClaimInfo struct {
-	Name             string
-	Namespace        string
-	NodeName         string
-	ProviderID       string
-	IsDrifted        bool
-	IsDisrupted      bool
-	DisruptionReason string
+	Name               string
+	Namespace          string
+	NodeName           string
+	ProviderID         string
+	IsDrifted          bool
+	IsDisrupted        bool
+	DisruptionReason   string
+	IsStuckTerminating bool
+	// DeletionTimestamp is set when IsStuckTerminating is true. It records when Karpenter
+	// first marked the NodeClaim for deletion, so parking can treat that moment - not the
+	// time we happened to notice it - as the start of the TTL clock.
+	DeletionTimestamp time.Time
 }
 
 // FindDriftedKarpenterNodeClaims scans the kubernetes cluster for Karpenter NodeClaims that are marked as drifted
@@ -247,6 +250,109 @@ func FindDisruptedKarpenterNodeClaims(ctx context.Context, dynamicClient dynamic
 	return disruptedNodeClaims, nil
 }
 
+// FindStuckTerminatingNodeClaims scans the kubernetes cluster for Karpenter NodeClaims that have
+// had `metadata.deletionTimestamp` set for longer than cfg.ParkedNodeTTL but whose underlying
+// node still exists. This catches nodes that Karpenter decided to disrupt (for drift,
+// consolidation, or any other reason) and never finished terminating - regardless of whether a
+// blocked pod eviction, a stuck cloud-provider instance termination, or anything else is the
+// cause, and regardless of whether the NodeClaim still carries a "Drifted"/"DisruptionReason"
+// condition (Karpenter clears those once deletion starts, so relying on them misses exactly
+// this failure mode). It excludes nodes that are already labeled as parked.
+func FindStuckTerminatingNodeClaims(ctx context.Context, dynamicClient dynamic.Interface, k8sClient kubernetes.Interface, cfg config.Config, logger *log.Entry) ([]KarpenterNodeClaimInfo, error) {
+	logger = logger.WithField("function", "FindStuckTerminatingNodeClaims")
+
+	// Create a GVR for Karpenter NodeClaims
+	gvr := schema.GroupVersionResource{
+		Group:    KarpenterAPIGroup,
+		Version:  KarpenterAPIVersion,
+		Resource: NodeClaimResource,
+	}
+
+	logger.Info("Listing Karpenter NodeClaims for stuck termination detection")
+
+	// List all NodeClaims
+	nodeClaimList, err := dynamicClient.Resource(gvr).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		logger.WithError(err).Error("Failed to list Karpenter NodeClaims")
+		return nil, errors.Wrap(err, "failed to list Karpenter NodeClaims")
+	}
+
+	logger.WithField("totalNodeClaims", len(nodeClaimList.Items)).Debug("Retrieved NodeClaims list")
+
+	now := time.Now()
+	var stuckNodeClaims []KarpenterNodeClaimInfo
+
+	for _, item := range nodeClaimList.Items {
+		nodeClaim := item.Object
+
+		isStuck, deletionTimestamp, err := isNodeClaimStuckTerminating(nodeClaim, now, cfg.ParkedNodeTTL)
+		if err != nil {
+			logger.WithField("nodeclaim", item.GetName()).WithError(err).Warn("Failed to check stuck termination status, skipping")
+			continue
+		}
+
+		if !isStuck {
+			continue
+		}
+
+		name, _, err := unstructured.NestedString(nodeClaim, "metadata", "name")
+		if err != nil || name == "" {
+			logger.WithField("nodeclaim", item.GetName()).Warn("Failed to get NodeClaim name")
+			continue
+		}
+
+		namespace, _, err := unstructured.NestedString(nodeClaim, "metadata", "namespace")
+		if err != nil {
+			namespace = "default" // NodeClaims might be cluster-scoped
+		}
+
+		nodeClaimLogger := logger.WithFields(log.Fields{
+			"nodeclaim":         name,
+			"namespace":         namespace,
+			"deletionTimestamp": deletionTimestamp.Format(time.RFC3339),
+			"age":               now.Sub(deletionTimestamp).String(),
+		})
+
+		// Get the associated node information
+		nodeName, providerID := getNodeInfoFromNodeClaim(nodeClaim, nodeClaimLogger)
+
+		// Skip if no node is associated - nothing left to park
+		if nodeName == "" {
+			nodeClaimLogger.Debug("NodeClaim has no associated node, skipping")
+			continue
+		}
+
+		nodeClaimLogger = nodeClaimLogger.WithField("nodeName", nodeName)
+
+		// Check if the node is already labeled as parked
+		isAlreadyParked, err := isNodeAlreadyParked(ctx, k8sClient, nodeName, cfg.UpgradeStatusLabel, nodeClaimLogger)
+		if err != nil {
+			nodeClaimLogger.WithError(err).Warn("Failed to check if node is already parked, skipping")
+			continue
+		}
+
+		if isAlreadyParked {
+			nodeClaimLogger.Debug("Node is already labeled as parked, skipping")
+			continue
+		}
+
+		nodeClaimLogger.Info("Found stuck terminating NodeClaim with unlabeled node")
+
+		stuckNodeClaims = append(stuckNodeClaims, KarpenterNodeClaimInfo{
+			Name:               name,
+			Namespace:          namespace,
+			NodeName:           nodeName,
+			ProviderID:         providerID,
+			IsStuckTerminating: true,
+			DeletionTimestamp:  deletionTimestamp,
+		})
+	}
+
+	logger.WithField("stuckTerminatingCount", len(stuckNodeClaims)).Info("Found stuck terminating Karpenter NodeClaims")
+
+	return stuckNodeClaims, nil
+}
+
 // isNodeClaimDrifted checks if a NodeClaim has the "Drifted" condition set to "True"
 func isNodeClaimDrifted(nodeClaim map[string]interface{}, logger *log.Entry) (bool, error) {
 	logger.Debug("Checking NodeClaim drift status")
@@ -296,7 +402,38 @@ func isNodeClaimDrifted(nodeClaim map[string]interface{}, logger *log.Entry) (bo
 	return false, nil
 }
 
-// isNodeClaimDisrupted checks if a NodeClaim has any disruption-related conditions set to "True"
+// isNodeClaimStuckTerminating checks whether a NodeClaim has had `metadata.deletionTimestamp`
+// set for longer than ttl (relative to now). Returns whether it's stuck, the parsed
+// deletionTimestamp (zero value if not set or not stuck), and any parse error encountered.
+// A NodeClaim with no deletionTimestamp is not being deleted at all, and one deleted more
+// recently than ttl is still within a normal termination window - neither counts as stuck.
+func isNodeClaimStuckTerminating(nodeClaim map[string]interface{}, now time.Time, ttl time.Duration) (bool, time.Time, error) {
+	deletionTimestampStr, found, err := unstructured.NestedString(nodeClaim, "metadata", "deletionTimestamp")
+	if err != nil {
+		return false, time.Time{}, errors.Wrap(err, "failed to read deletionTimestamp from NodeClaim")
+	}
+
+	if !found || deletionTimestampStr == "" {
+		return false, time.Time{}, nil
+	}
+
+	deletionTimestamp, err := time.Parse(time.RFC3339, deletionTimestampStr)
+	if err != nil {
+		return false, time.Time{}, errors.Wrap(err, "failed to parse deletionTimestamp")
+	}
+
+	if now.Sub(deletionTimestamp) <= ttl {
+		return false, time.Time{}, nil
+	}
+
+	return true, deletionTimestamp, nil
+}
+
+// isNodeClaimDisrupted checks if a NodeClaim has a disruption-related condition set to "True".
+// Karpenter v1 reports the disruption cause via the "DisruptionReason" condition's `reason`
+// field (e.g. "Drifted", "Empty", "Underutilized" - see karpenter.sh/v1 DisruptionReason),
+// not via a dedicated condition type per cause. In-flight instance termination is reported
+// separately via the "InstanceTerminating" condition.
 // Returns true if disrupted, the disruption reason, and any error
 func isNodeClaimDisrupted(nodeClaim map[string]interface{}, logger *log.Entry) (bool, string, error) {
 	logger.Debug("Checking NodeClaim disruption status")
@@ -314,14 +451,6 @@ func isNodeClaimDisrupted(nodeClaim map[string]interface{}, logger *log.Entry) (
 
 	logger.WithField("conditionsCount", len(conditions)).Debug("Found conditions on NodeClaim")
 
-	// List of disruption conditions to check for
-	disruptionConditions := []string{
-		KarpenterDisruptingCondition,
-		KarpenterTerminatingCondition,
-		KarpenterEmptyCondition,
-		KarpenterUnderutilizedCondition,
-	}
-
 	for _, conditionInterface := range conditions {
 		condition, ok := conditionInterface.(map[string]interface{})
 		if !ok {
@@ -333,26 +462,34 @@ func isNodeClaimDisrupted(nodeClaim map[string]interface{}, logger *log.Entry) (
 			continue
 		}
 
-		// Check if this is a disruption condition
-		for _, disruptionCondition := range disruptionConditions {
-			if conditionType == disruptionCondition {
-				status, _, err := unstructured.NestedString(condition, "status")
-				if err != nil {
-					continue
-				}
-
-				isDisrupted := status == KarpenterTrueStatus
-				if isDisrupted {
-					logger.WithFields(log.Fields{
-						"conditionType":   conditionType,
-						"conditionStatus": status,
-						"isDisrupted":     isDisrupted,
-					}).Info("Found disruption condition on NodeClaim")
-
-					return true, conditionType, nil
-				}
-			}
+		if conditionType != KarpenterDisruptionReasonCondition && conditionType != KarpenterInstanceTerminatingCondition {
+			continue
 		}
+
+		status, _, err := unstructured.NestedString(condition, "status")
+		if err != nil {
+			continue
+		}
+
+		if status != KarpenterTrueStatus {
+			continue
+		}
+
+		// The DisruptionReason condition carries the actual cause (Drifted/Empty/Underutilized)
+		// in its `reason` field. InstanceTerminating has no such field, so fall back to the
+		// condition type itself as the reported reason.
+		reason, _, _ := unstructured.NestedString(condition, "reason")
+		if reason == "" {
+			reason = conditionType
+		}
+
+		logger.WithFields(log.Fields{
+			"conditionType":   conditionType,
+			"conditionStatus": status,
+			"reason":          reason,
+		}).Info("Found disruption condition on NodeClaim")
+
+		return true, reason, nil
 	}
 
 	logger.Debug("No disruption conditions found on NodeClaim, assuming not disrupted")
@@ -538,6 +675,110 @@ func ProcessDisruptedKarpenterNodes(ctx context.Context, appContext *AppContext,
 	metrics.ShredderProcessingDurationSeconds.Observe(time.Since(startTime).Seconds())
 
 	logger.WithField("processedNodes", len(disruptedNodeClaims)).Info("Completed Karpenter disruption detection and node labeling process")
+
+	return nil
+}
+
+// LabelStuckTerminatingNodes labels nodes associated with stuck terminating NodeClaims with the
+// configured labels. Unlike LabelDriftedNodes/LabelDisruptedNodes, each node gets its own
+// ParkedSince set to the NodeClaim's deletionTimestamp, so the parking TTL is computed from when
+// termination actually started rather than from now - a node already stuck past ParkedNodeTTL
+// will have an already-expired ExpiresOnLabel and be force-evicted on the very next eviction
+// loop pass instead of waiting out a fresh TTL.
+func LabelStuckTerminatingNodes(ctx context.Context, k8sClient kubernetes.Interface, stuckNodeClaims []KarpenterNodeClaimInfo, cfg config.Config, dryRun bool, logger *log.Entry) error {
+	logger = logger.WithField("function", "LabelStuckTerminatingNodes")
+
+	if len(stuckNodeClaims) == 0 {
+		logger.Debug("No stuck terminating nodes to label")
+		return nil
+	}
+
+	logger.WithField("stuckNodesCount", len(stuckNodeClaims)).Info("Starting to label stuck terminating nodes")
+
+	// Convert KarpenterNodeClaimInfo to NodeInfo for the common parking function
+	var nodesToPark []NodeInfo
+	for _, nodeClaimInfo := range stuckNodeClaims {
+		if nodeClaimInfo.NodeName == "" {
+			logger.WithField("nodeclaim", nodeClaimInfo.Name).Warn("NodeClaim has no associated node, skipping")
+			continue
+		}
+
+		deletionTimestamp := nodeClaimInfo.DeletionTimestamp
+
+		logger.WithFields(log.Fields{
+			"nodeclaim":         nodeClaimInfo.Name,
+			"nodeName":          nodeClaimInfo.NodeName,
+			"deletionTimestamp": deletionTimestamp.Format(time.RFC3339),
+		}).Info("Adding node to parking list")
+
+		nodesToPark = append(nodesToPark, NodeInfo{
+			Name:        nodeClaimInfo.NodeName,
+			Labels:      nil,
+			ParkedSince: &deletionTimestamp,
+		})
+	}
+
+	logger.WithField("nodesToPark", len(nodesToPark)).Info("Converted NodeClaims to parking list")
+
+	// Apply MaxParkedNodes limit if configured
+	limitedNodes, err := LimitNodesToPark(ctx, k8sClient, nodesToPark, cfg.MaxParkedNodes, cfg.UpgradeStatusLabel, logger)
+	if err != nil {
+		logger.WithError(err).Error("Failed to apply MaxParkedNodes limit")
+		return errors.Wrap(err, "failed to apply MaxParkedNodes limit")
+	}
+
+	if len(limitedNodes) == 0 {
+		logger.Info("No nodes to park after applying MaxParkedNodes limit")
+		return nil
+	}
+
+	// Use the common parking function
+	return ParkNodes(ctx, k8sClient, limitedNodes, cfg, dryRun, "karpenter-stuck-terminating", logger)
+}
+
+// ProcessStuckTerminatingNodeClaims is the main function that combines finding stuck terminating
+// node claims and labeling their nodes
+func ProcessStuckTerminatingNodeClaims(ctx context.Context, appContext *AppContext, logger *log.Entry) error {
+	logger = logger.WithField("function", "ProcessStuckTerminatingNodeClaims")
+
+	logger.Info("Starting Karpenter stuck termination detection and node labeling process")
+
+	// Start timing the processing duration
+	startTime := time.Now()
+
+	// Find stuck terminating Karpenter NodeClaims
+	stuckNodeClaims, err := FindStuckTerminatingNodeClaims(ctx, appContext.DynamicK8SClient, appContext.K8sClient, appContext.Config, logger)
+	if err != nil {
+		logger.WithError(err).Error("Failed to find stuck terminating Karpenter NodeClaims")
+		return errors.Wrap(err, "failed to find stuck terminating Karpenter NodeClaims")
+	}
+
+	// Increment the stuck terminating nodes counter
+	metrics.ShredderKarpenterStuckTerminatingNodesTotal.Add(float64(len(stuckNodeClaims)))
+
+	if len(stuckNodeClaims) == 0 {
+		logger.Info("No stuck terminating Karpenter NodeClaims found")
+		return nil
+	}
+
+	// Label the nodes associated with stuck terminating NodeClaims
+	err = LabelStuckTerminatingNodes(ctx, appContext.K8sClient, stuckNodeClaims, appContext.Config, appContext.IsDryRun(), logger)
+	if err != nil {
+		logger.WithError(err).Error("Failed to label stuck terminating nodes")
+		metrics.ShredderKarpenterNodesParkingFailedTotal.Add(float64(len(stuckNodeClaims)))
+		metrics.ShredderNodesParkingFailedTotal.Add(float64(len(stuckNodeClaims)))
+		return errors.Wrap(err, "failed to label stuck terminating nodes")
+	}
+
+	// Increment the successfully parked nodes counter
+	metrics.ShredderKarpenterNodesParkedTotal.Add(float64(len(stuckNodeClaims)))
+	metrics.ShredderNodesParkedTotal.Add(float64(len(stuckNodeClaims)))
+
+	// Record the processing duration
+	metrics.ShredderKarpenterProcessingDurationSeconds.Observe(time.Since(startTime).Seconds())
+	metrics.ShredderProcessingDurationSeconds.Observe(time.Since(startTime).Seconds())
+
+	logger.WithField("processedNodes", len(stuckNodeClaims)).Info("Completed Karpenter stuck termination detection and node labeling process")
 
 	return nil
 }

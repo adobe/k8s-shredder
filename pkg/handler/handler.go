@@ -128,7 +128,20 @@ func (h *Handler) Run() error {
 		h.logger.Debug("Karpenter disruption detection is disabled")
 	}
 
-	// Third, scan for nodes with specific labels and park them (if enabled)
+	// Third, scan for Karpenter NodeClaims stuck terminating past ParkedNodeTTL and park their
+	// nodes (if enabled)
+	if h.appContext.Config.EnableKarpenterStuckTerminationDetection {
+		err := utils.ProcessStuckTerminatingNodeClaims(h.appContext.Context, h.appContext, h.logger)
+		if err != nil {
+			h.logger.WithError(err).Warn("Failed to process stuck terminating Karpenter NodeClaims, continuing with normal eviction loop")
+			metrics.ShredderErrorsTotal.Inc()
+			// We don't return here because we want to continue with the normal eviction loop even if stuck termination detection fails
+		}
+	} else {
+		h.logger.Debug("Karpenter stuck termination detection is disabled")
+	}
+
+	// Fourth, scan for nodes with specific labels and park them (if enabled)
 	if h.appContext.Config.EnableNodeLabelDetection {
 		err := utils.ProcessNodesWithLabels(h.appContext.Context, h.appContext, h.logger)
 		if err != nil {

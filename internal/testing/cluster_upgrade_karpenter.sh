@@ -83,9 +83,9 @@ spec:
     values: ["amd64"]
 status:
   conditions:
-  - type: "Disrupting"
+  - type: "DisruptionReason"
     status: "True"
-    reason: "Consolidation"
+    reason: "Underutilized"
     message: "Node is being disrupted for consolidation"
   - type: "Ready"
     status: "True"

@@ -64,12 +64,29 @@ The following options can be used to customize the k8s-shredder controller:
 | ExtraParkingLabels                 | {}                                                          | (Optional) Map of extra labels to apply to nodes and pods during parking. Example: `{ "example.com/owner": "infrastructure" }` |
 | EvictionSafetyCheck                | true                                                        | Controls whether to perform safety checks before force eviction. If true, nodes will be unparked if pods don't have required parking labels. |
 | ParkingReasonLabel                 | "shredder.ethos.adobe.net/parked-reason"                   | Label used to track why a node or pod was parked (values: node-label, karpenter-drifted, karpenter-disrupted) |
+| EnableLeaderElection               | false                                                        | Enables Kubernetes lease-based leader election so only one controller instance runs the scheduler loop at a time. |
+| LeaderElectionLockName             | "k8s-shredder-leader-election"                              | Name of the Lease resource used for leader election. |
+| LeaderElectionNamespace            | ""                                                          | Namespace for the leader-election Lease. If empty, the controller uses the default namespace. |
+| LeaderElectionID                   | ""                                                          | Optional custom identity for the controller instance. If empty, a hostname-based value is generated automatically. |
+| LeaderElectionLeaseDuration        | 15s                                                         | How long a leader lease remains valid when the leader is not renewing it. |
+| LeaderElectionRenewDeadline        | 10s                                                         | How long the leader has to renew the lease before it is considered stale. |
+| LeaderElectionRetryPeriod          | 2s                                                          | How often the controller retries leader election when no leader is currently holding the lease. |
 
 ### How it works
 
 k8s-shredder will periodically run eviction loops, based on configured `EvictionLoopInterval`, trying to clean up all the pods from the parked nodes. Once all the pods are cleaned up, [cluster-autoscaler](
 
 https://github.com/kubernetes/autoscaler/tree/master/cluster-autoscaler) or [karpenter](https://github.com/kubernetes-sigs/karpenter) should chime in and recycle the parked node.
+
+#### Leader election behavior
+
+Before this change, every controller replica could start its own scheduler loop and attempt to process parked nodes concurrently. That could lead to duplicate eviction work and race conditions when multiple replicas handled the same workload.
+
+With leader election enabled by default, only one replica holds a Kubernetes Lease and runs the scheduler loop. The other replicas remain idle until leadership changes. If the current leader stops renewing the lease or exits, another replica can acquire leadership automatically and continue the work without manual intervention. This makes multi-replica deployments safer and avoids duplicate scheduling activity.
+
+To disable the behavior for single-replica deployments, set `EnableLeaderElection: false` in the configuration.
+
+By default, the EnableLeaderElection configuration is set to false. If the replica count is greater than 1, set this configuration to true.
 
 The diagram below describes a simple flow about how k8s-shredder handles stateful set applications:
 

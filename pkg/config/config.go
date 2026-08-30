@@ -75,6 +75,20 @@ type Config struct {
 	EvictionSafetyCheck bool
 	// ParkingReasonLabel is the label used to track why a node or pod was parked
 	ParkingReasonLabel string
+	// EnableLeaderElection controls whether this instance participates in leader election
+	EnableLeaderElection bool
+	// LeaderElectionLockName is the name of the Lease lock resource used for leader election
+	LeaderElectionLockName string
+	// LeaderElectionNamespace is the namespace where the lock resource is created
+	LeaderElectionNamespace string
+	// LeaderElectionID is the identity used for leader election
+	LeaderElectionID string
+	// LeaderElectionLeaseDuration is the lease duration for leader election
+	LeaderElectionLeaseDuration time.Duration
+	// LeaderElectionRenewDeadline is the renew deadline for leader election
+	LeaderElectionRenewDeadline time.Duration
+	// LeaderElectionRetryPeriod is the retry period between leader election attempts
+	LeaderElectionRetryPeriod time.Duration
 }
 
 // GetEvictionLoopSchedule returns a parsed Schedule object if EvictionLoopSchedule is configured

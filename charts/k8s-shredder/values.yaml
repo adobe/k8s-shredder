@@ -78,6 +78,20 @@ shredder:
     # example.com/owner: "infrastructure"
     # example.com/maintenance: "true"
 # -- RBAC (Role-Based Access Control) configuration
+  # -- Enable leader election so only one instance runs the eviction loop
+  EnableLeaderElection: false
+  # -- Name of the Lease object used for leader election
+  LeaderElectionLockName: k8s-shredder-leader-election
+  # -- Namespace where the Lease object will be created (default from POD_NAMESPACE or 'default')
+  LeaderElectionNamespace: ""
+  # -- Identity used for leader election; default is pod hostname if empty
+  LeaderElectionID: ""
+  # -- Lease duration for leader election
+  LeaderElectionLeaseDuration: 15s
+  # -- Renew deadline for leader election
+  LeaderElectionRenewDeadline: 10s
+  # -- Retry period between leader election attempts
+  LeaderElectionRetryPeriod: 2s
 rbac:
   # -- Create RBAC resources (ClusterRole, ClusterRoleBinding)
   create: true

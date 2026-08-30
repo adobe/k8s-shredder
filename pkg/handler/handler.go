@@ -403,7 +403,7 @@ func (h *Handler) evictPod(pod v1.Pod, deleteOptions *metav1.DeleteOptions) erro
 	})
 
 	if err != nil {
-		metrics.ShredderPodErrorsTotal.WithLabelValues(pod.Name, pod.Namespace, err.Error(), "evict")
+		metrics.ShredderPodErrorsTotal.WithLabelValues(pod.Name, pod.Namespace, err.Error(), "evict").Set(1)
 		return err
 	}
 
@@ -418,7 +418,7 @@ func (h *Handler) deletePod(pod v1.Pod, deleteOptions *metav1.DeleteOptions) err
 	err := coreClient.Pods(pod.Namespace).Delete(h.appContext.Context, pod.Name, *deleteOptions)
 
 	if err != nil {
-		metrics.ShredderPodErrorsTotal.WithLabelValues(pod.Name, pod.Namespace, err.Error(), "delete")
+		metrics.ShredderPodErrorsTotal.WithLabelValues(pod.Name, pod.Namespace, err.Error(), "delete").Set(1)
 		return err
 	}
 

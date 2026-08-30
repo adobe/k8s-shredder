@@ -1,0 +1,20 @@
+{{ if .Values.grafanaDashboard.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "k8s-shredder.fullname" . }}-grafana-dashboard
+  namespace: {{ .Release.Namespace }}
+  labels:
+{{ include "k8s-shredder.labels" . | indent 4 }}
+    {{ .Values.grafanaDashboard.labelKey }}: {{ .Values.grafanaDashboard.labelValue | quote }}
+  {{- with .Values.grafanaDashboard.labels }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if .Values.grafanaDashboard.folder }}
+  annotations:
+    grafana_folder: {{ .Values.grafanaDashboard.folder | quote }}
+  {{- end }}
+data:
+  k8s-shredder-dashboard.json: |-
+{{ .Files.Get "dashboards/k8s-shredder-dashboard.json" | indent 4 }}
+{{- end }}

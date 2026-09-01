@@ -32,6 +32,13 @@ import (
 type NodeInfo struct {
 	Name   string
 	Labels map[string]string
+	// ParkedSince optionally overrides the reference time used to compute the parking
+	// expiration (ExpiresOnValue = ParkedSince + ParkedNodeTTL). If nil, time.Now() is used,
+	// which is the normal "just discovered, start a fresh TTL" behavior. Callers that detect
+	// a node has already been in some abnormal state since a known past time (e.g. a NodeClaim
+	// stuck terminating) can set this to that past time so the TTL is treated as already
+	// (partially or fully) elapsed instead of restarting the clock from now.
+	ParkedSince *time.Time
 }
 
 // ParkingLabels holds all the labels to be applied when parking nodes and pods
@@ -369,30 +376,12 @@ func ParkNodes(ctx context.Context, k8sClient kubernetes.Interface, nodes []Node
 		return nil
 	}
 
-	// Calculate the expiration time
-	expirationTime := time.Now().Add(cfg.ParkedNodeTTL)
-	expirationUnixTime := strconv.FormatInt(expirationTime.Unix(), 10)
-
 	logger.WithFields(log.Fields{
 		"upgradeStatusLabel": cfg.UpgradeStatusLabel,
 		"expiresOnLabel":     cfg.ExpiresOnLabel,
-		"expirationTime":     expirationTime.Format(time.RFC3339),
 		"dryRun":             dryRun,
 		"nodeCount":          len(nodes),
 	}).Info("Starting to park nodes")
-
-	// Create parking labels struct once to reuse for all nodes and pods
-	parkingLabels := ParkingLabels{
-		UpgradeStatusLabel: cfg.UpgradeStatusLabel,
-		UpgradeStatusValue: "parked",
-		ExpiresOnLabel:     cfg.ExpiresOnLabel,
-		ExpiresOnValue:     expirationUnixTime,
-		ParkedByLabel:      cfg.ParkedByLabel,
-		ParkedByValue:      cfg.ParkedByValue,
-		ParkingReasonLabel: cfg.ParkingReasonLabel,
-		ParkingReasonValue: source,
-		ExtraLabels:        cfg.ExtraParkingLabels,
-	}
 
 	for _, nodeInfo := range nodes {
 		if nodeInfo.Name == "" {
@@ -401,6 +390,34 @@ func ParkNodes(ctx context.Context, k8sClient kubernetes.Interface, nodes []Node
 		}
 
 		nodeLogger := logger.WithField("nodeName", nodeInfo.Name)
+
+		// Calculate the expiration time. Normally this is a fresh TTL starting now, but
+		// callers can backdate the reference point (nodeInfo.ParkedSince) so a node that's
+		// already been in an abnormal state for a while doesn't get another full TTL tacked
+		// on top of the time it already spent stuck.
+		parkedSince := time.Now()
+		if nodeInfo.ParkedSince != nil {
+			parkedSince = *nodeInfo.ParkedSince
+		}
+		expirationTime := parkedSince.Add(cfg.ParkedNodeTTL)
+		expirationUnixTime := strconv.FormatInt(expirationTime.Unix(), 10)
+
+		nodeLogger.WithFields(log.Fields{
+			"parkedSince":    parkedSince.Format(time.RFC3339),
+			"expirationTime": expirationTime.Format(time.RFC3339),
+		}).Debug("Computed parking expiration for node")
+
+		parkingLabels := ParkingLabels{
+			UpgradeStatusLabel: cfg.UpgradeStatusLabel,
+			UpgradeStatusValue: "parked",
+			ExpiresOnLabel:     cfg.ExpiresOnLabel,
+			ExpiresOnValue:     expirationUnixTime,
+			ParkedByLabel:      cfg.ParkedByLabel,
+			ParkedByValue:      cfg.ParkedByValue,
+			ParkingReasonLabel: cfg.ParkingReasonLabel,
+			ParkingReasonValue: source,
+			ExtraLabels:        cfg.ExtraParkingLabels,
+		}
 
 		// Label the node
 		err := labelNode(ctx, k8sClient, nodeInfo.Name, parkingLabels, dryRun, nodeLogger)

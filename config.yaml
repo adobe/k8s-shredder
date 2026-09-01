@@ -4,7 +4,7 @@
 
 # Core eviction settings
 EvictionLoopInterval: 60s  # How often to run the eviction loop process
-ParkedNodeTTL: 60m  # Time a node can be parked before starting force eviction process
+ParkedNodeTTL: 168h  # Time a node can be parked before starting force eviction process. Must be greater than KarpenterStuckTerminationTTL below, otherwise stuck nodes are parked with an already-expired TTL and get force-evicted immediately, bypassing PDBs
 RollingRestartThreshold: 0.5  # How much time(percentage) should pass from ParkedNodeTTL before starting the rollout restart process
 # Node and pod labeling
 UpgradeStatusLabel: shredder.ethos.adobe.net/upgrade-status  # Label used for identifying parked nodes
@@ -24,7 +24,7 @@ ArgoRolloutsAPIVersion: v1alpha1  # API version from argoproj.io API group to be
 EnableKarpenterDriftDetection: false  # Controls whether to scan for drifted Karpenter NodeClaims and automatically label their nodes
 EnableKarpenterDisruptionDetection: false  # Controls whether to scan for disrupted Karpenter NodeClaims and automatically label their nodes
 EnableKarpenterStuckTerminationDetection: false  # Controls whether to scan for Karpenter NodeClaims stuck terminating (deletionTimestamp set longer than KarpenterStuckTerminationTTL, node still present) and automatically label their nodes for force eviction
-KarpenterStuckTerminationTTL: 24h  # How long a NodeClaim's deletionTimestamp can be set before it's considered stuck terminating. Independent of ParkedNodeTTL, which still controls the backdated parking expiry once a node is flagged
+KarpenterStuckTerminationTTL: 24h  # How long a NodeClaim's deletionTimestamp can be set before it's considered stuck terminating. Must be less than ParkedNodeTTL above
 # Node label detection
 EnableNodeLabelDetection: false  # Controls whether to scan for nodes with specific labels and automatically park them
 NodeLabelsToDetect: []  # List of node labels to detect. Supports both key-only and key=value formats

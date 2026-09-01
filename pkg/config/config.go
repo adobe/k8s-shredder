@@ -110,3 +110,21 @@ func (c *Config) GetEvictionLoopSchedule() (*schedule.Schedule, error) {
 func (c *Config) HasEvictionLoopSchedule() bool {
 	return c.EvictionLoopSchedule != ""
 }
+
+// ValidateKarpenterStuckTerminationTTL returns an error if KarpenterStuckTerminationTTL is not
+// smaller than ParkedNodeTTL while EnableKarpenterStuckTerminationDetection is enabled. The check
+// is skipped when the feature is disabled, since the TTL relationship is otherwise irrelevant.
+func (c *Config) ValidateKarpenterStuckTerminationTTL() error {
+	if !c.EnableKarpenterStuckTerminationDetection {
+		return nil
+	}
+
+	if c.KarpenterStuckTerminationTTL >= c.ParkedNodeTTL {
+		return errors.Errorf(
+			"KarpenterStuckTerminationTTL (%s) must be less than ParkedNodeTTL (%s), otherwise stuck nodes are parked with an already-expired TTL and get force-evicted immediately, bypassing PDBs",
+			c.KarpenterStuckTerminationTTL, c.ParkedNodeTTL,
+		)
+	}
+
+	return nil
+}

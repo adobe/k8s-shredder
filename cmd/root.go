@@ -200,6 +200,12 @@ func parseConfig() {
 		"EvictionLoopDuration":                     cfg.EvictionLoopDuration,
 	}).Info("Loaded configuration")
 
+	// Validate that a newly-detected stuck NodeClaim still gets real, PDB-respecting grace time
+	// before force eviction, rather than an already-expired ExpiresOnLabel
+	if err := cfg.ValidateKarpenterStuckTerminationTTL(); err != nil {
+		log.Fatalf("Invalid configuration: %s", err)
+	}
+
 	// Validate schedule configuration if provided
 	if cfg.HasEvictionLoopSchedule() {
 		sched, err := cfg.GetEvictionLoopSchedule()

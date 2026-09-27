@@ -150,7 +150,10 @@ func ParkNodesWithLabels(ctx context.Context, k8sClient kubernetes.Interface, ma
 	var nodesToPark []NodeInfo
 	for _, nodeInfo := range matchingNodes {
 		logger.WithField("nodeName", nodeInfo.Name).Debug("Adding node to parking list")
-		nodesToPark = append(nodesToPark, NodeInfo(nodeInfo))
+		nodesToPark = append(nodesToPark, NodeInfo{
+			Name:   nodeInfo.Name,
+			Labels: nodeInfo.Labels,
+		})
 	}
 
 	logger.WithField("nodesToPark", len(nodesToPark)).Info("Converted labeled nodes to parking list")

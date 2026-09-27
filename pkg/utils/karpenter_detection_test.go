@@ -13,7 +13,9 @@ package utils
 
 import (
 	"context"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/adobe/k8s-shredder/pkg/config"
 	"github.com/pkg/errors"
@@ -115,6 +117,108 @@ func TestIsNodeClaimDrifted(t *testing.T) {
 				assert.NoError(t, err, tt.description)
 				assert.Equal(t, tt.expected, result, tt.description)
 			}
+		})
+	}
+}
+
+// TestIsNodeClaimStuckTerminating tests the isNodeClaimStuckTerminating function
+func TestIsNodeClaimStuckTerminating(t *testing.T) {
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	ttl := 1 * time.Hour
+
+	tests := []struct {
+		name           string
+		nodeClaim      map[string]interface{}
+		expectedStuck  bool
+		expectedTSZero bool
+		expectError    bool
+		description    string
+	}{
+		{
+			name: "NodeClaim with no deletionTimestamp",
+			nodeClaim: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"name": "nodeclaim-1",
+				},
+			},
+			expectedStuck:  false,
+			expectedTSZero: true,
+			expectError:    false,
+			description:    "NodeClaim not being deleted should not be stuck",
+		},
+		{
+			name: "NodeClaim deleted recently, within TTL",
+			nodeClaim: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"name":              "nodeclaim-1",
+					"deletionTimestamp": now.Add(-30 * time.Minute).Format(time.RFC3339),
+				},
+			},
+			expectedStuck:  false,
+			expectedTSZero: true,
+			expectError:    false,
+			description:    "NodeClaim deleted less than ttl ago should not be considered stuck yet",
+		},
+		{
+			name: "NodeClaim deleted exactly at TTL boundary",
+			nodeClaim: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"name":              "nodeclaim-1",
+					"deletionTimestamp": now.Add(-ttl).Format(time.RFC3339),
+				},
+			},
+			expectedStuck:  false,
+			expectedTSZero: true,
+			expectError:    false,
+			description:    "NodeClaim deleted exactly ttl ago should not yet be considered stuck (strictly greater than)",
+		},
+		{
+			name: "NodeClaim deleted well past TTL",
+			nodeClaim: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"name":              "nodeclaim-1",
+					"deletionTimestamp": now.Add(-24 * time.Hour).Format(time.RFC3339),
+				},
+			},
+			expectedStuck:  true,
+			expectedTSZero: false,
+			expectError:    false,
+			description:    "NodeClaim deleted well past ttl ago should be considered stuck",
+		},
+		{
+			name: "NodeClaim with malformed deletionTimestamp",
+			nodeClaim: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"name":              "nodeclaim-1",
+					"deletionTimestamp": "not-a-timestamp",
+				},
+			},
+			expectedStuck:  false,
+			expectedTSZero: true,
+			expectError:    true,
+			description:    "Malformed deletionTimestamp should return an error",
+		},
+		{
+			name:           "NodeClaim with no metadata at all",
+			nodeClaim:      map[string]interface{}{},
+			expectedStuck:  false,
+			expectedTSZero: true,
+			expectError:    false,
+			description:    "NodeClaim with no metadata should not be stuck",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stuck, deletionTimestamp, err := isNodeClaimStuckTerminating(tt.nodeClaim, now, ttl)
+
+			if tt.expectError {
+				assert.Error(t, err, tt.description)
+			} else {
+				assert.NoError(t, err, tt.description)
+			}
+			assert.Equal(t, tt.expectedStuck, stuck, tt.description)
+			assert.Equal(t, tt.expectedTSZero, deletionTimestamp.IsZero(), tt.description)
 		})
 	}
 }
@@ -333,47 +437,32 @@ func TestIsNodeClaimDisrupted(t *testing.T) {
 		description       string
 	}{
 		{
-			name: "NodeClaim is disrupting",
+			name: "NodeClaim has DisruptionReason=Drifted",
 			nodeClaim: map[string]interface{}{
 				"status": map[string]interface{}{
 					"conditions": []interface{}{
 						map[string]interface{}{
-							"type":   "Disrupting",
+							"type":   "DisruptionReason",
 							"status": "True",
+							"reason": "Drifted",
 						},
 					},
 				},
 			},
 			expectedDisrupted: true,
-			expectedReason:    "Disrupting",
+			expectedReason:    "Drifted",
 			expectError:       false,
-			description:       "NodeClaim with Disrupting=True condition should return true",
+			description:       "NodeClaim with DisruptionReason=True/Drifted condition should return true",
 		},
 		{
-			name: "NodeClaim is terminating",
+			name: "NodeClaim has DisruptionReason=Empty",
 			nodeClaim: map[string]interface{}{
 				"status": map[string]interface{}{
 					"conditions": []interface{}{
 						map[string]interface{}{
-							"type":   "Terminating",
+							"type":   "DisruptionReason",
 							"status": "True",
-						},
-					},
-				},
-			},
-			expectedDisrupted: true,
-			expectedReason:    "Terminating",
-			expectError:       false,
-			description:       "NodeClaim with Terminating=True condition should return true",
-		},
-		{
-			name: "NodeClaim is empty",
-			nodeClaim: map[string]interface{}{
-				"status": map[string]interface{}{
-					"conditions": []interface{}{
-						map[string]interface{}{
-							"type":   "Empty",
-							"status": "True",
+							"reason": "Empty",
 						},
 					},
 				},
@@ -381,16 +470,17 @@ func TestIsNodeClaimDisrupted(t *testing.T) {
 			expectedDisrupted: true,
 			expectedReason:    "Empty",
 			expectError:       false,
-			description:       "NodeClaim with Empty=True condition should return true",
+			description:       "NodeClaim with DisruptionReason=True/Empty condition should return true",
 		},
 		{
-			name: "NodeClaim is underutilized",
+			name: "NodeClaim has DisruptionReason=Underutilized",
 			nodeClaim: map[string]interface{}{
 				"status": map[string]interface{}{
 					"conditions": []interface{}{
 						map[string]interface{}{
-							"type":   "Underutilized",
+							"type":   "DisruptionReason",
 							"status": "True",
+							"reason": "Underutilized",
 						},
 					},
 				},
@@ -398,16 +488,34 @@ func TestIsNodeClaimDisrupted(t *testing.T) {
 			expectedDisrupted: true,
 			expectedReason:    "Underutilized",
 			expectError:       false,
-			description:       "NodeClaim with Underutilized=True condition should return true",
+			description:       "NodeClaim with DisruptionReason=True/Underutilized condition should return true",
 		},
 		{
-			name: "NodeClaim is not disrupted",
+			name: "NodeClaim is instance terminating",
 			nodeClaim: map[string]interface{}{
 				"status": map[string]interface{}{
 					"conditions": []interface{}{
 						map[string]interface{}{
-							"type":   "Disrupting",
+							"type":   "InstanceTerminating",
+							"status": "True",
+						},
+					},
+				},
+			},
+			expectedDisrupted: true,
+			expectedReason:    "InstanceTerminating",
+			expectError:       false,
+			description:       "NodeClaim with InstanceTerminating=True condition should return true, falling back to the condition type as the reason",
+		},
+		{
+			name: "NodeClaim has DisruptionReason=False",
+			nodeClaim: map[string]interface{}{
+				"status": map[string]interface{}{
+					"conditions": []interface{}{
+						map[string]interface{}{
+							"type":   "DisruptionReason",
 							"status": "False",
+							"reason": "Drifted",
 						},
 					},
 				},
@@ -415,7 +523,7 @@ func TestIsNodeClaimDisrupted(t *testing.T) {
 			expectedDisrupted: false,
 			expectedReason:    "",
 			expectError:       false,
-			description:       "NodeClaim with Disrupting=False condition should return false",
+			description:       "NodeClaim with DisruptionReason=False condition should return false",
 		},
 		{
 			name: "NodeClaim has no disruption conditions",
@@ -501,7 +609,7 @@ func TestLabelDisruptedNodes(t *testing.T) {
 					NodeName:         "test-node",
 					ProviderID:       "aws://us-west-2a/i-1234567890abcdef0",
 					IsDisrupted:      true,
-					DisruptionReason: "Disrupting",
+					DisruptionReason: "Drifted",
 				},
 			},
 			cfg: config.Config{
@@ -587,6 +695,83 @@ func TestLabelDisruptedNodes(t *testing.T) {
 	}
 }
 
+// TestLabelStuckTerminatingNodes tests the LabelStuckTerminatingNodes function, in particular
+// that the resulting ExpiresOnLabel is computed from the NodeClaim's DeletionTimestamp rather
+// than from time.Now() - a node already stuck past ParkedNodeTTL should come out with an
+// already-expired label instead of a fresh one.
+func TestLabelStuckTerminatingNodes(t *testing.T) {
+	cfg := config.Config{
+		MaxParkedNodes:     "5",
+		UpgradeStatusLabel: "upgrade-status",
+		ExpiresOnLabel:     "expires-on",
+		ParkedByLabel:      "parked-by",
+		ParkedByValue:      "k8s-shredder",
+		ParkingReasonLabel: "parked-reason",
+		ParkedNodeTaint:    "upgrade-status=parked:NoSchedule",
+		ParkedNodeTTL:      1 * time.Hour,
+	}
+
+	t.Run("No stuck node claims", func(t *testing.T) {
+		fakeClient := fake.NewClientset()
+		logger := log.NewEntry(log.New())
+		err := LabelStuckTerminatingNodes(context.Background(), fakeClient, []KarpenterNodeClaimInfo{}, cfg, false, logger)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Node claim without node name is skipped", func(t *testing.T) {
+		fakeClient := fake.NewClientset()
+		logger := log.NewEntry(log.New())
+		err := LabelStuckTerminatingNodes(context.Background(), fakeClient, []KarpenterNodeClaimInfo{
+			{
+				Name:               "nodeclaim-1",
+				NodeName:           "",
+				IsStuckTerminating: true,
+				DeletionTimestamp:  time.Now().Add(-24 * time.Hour),
+			},
+		}, cfg, false, logger)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Stuck node claim expiration is backdated to deletionTimestamp", func(t *testing.T) {
+		fakeClient := fake.NewClientset()
+		node := &v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-node",
+			},
+		}
+		_, err := fakeClient.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
+		assert.NoError(t, err)
+
+		deletionTimestamp := time.Now().Add(-24 * time.Hour)
+		logger := log.NewEntry(log.New())
+		err = LabelStuckTerminatingNodes(context.Background(), fakeClient, []KarpenterNodeClaimInfo{
+			{
+				Name:               "nodeclaim-1",
+				NodeName:           "test-node",
+				IsStuckTerminating: true,
+				DeletionTimestamp:  deletionTimestamp,
+			},
+		}, cfg, false, logger)
+		assert.NoError(t, err)
+
+		updatedNode, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "test-node", metav1.GetOptions{})
+		assert.NoError(t, err)
+		assert.Equal(t, "parked", updatedNode.Labels[cfg.UpgradeStatusLabel])
+
+		expiresOnStr := updatedNode.Labels[cfg.ExpiresOnLabel]
+		assert.NotEmpty(t, expiresOnStr)
+
+		expiresOnUnix, err := strconv.ParseInt(expiresOnStr, 10, 64)
+		assert.NoError(t, err)
+
+		expectedExpiry := deletionTimestamp.Add(cfg.ParkedNodeTTL)
+		// The expiry should be anchored to deletionTimestamp+TTL, i.e. already in the past,
+		// not to time.Now()+TTL which would still be in the future.
+		assert.WithinDuration(t, expectedExpiry, time.Unix(expiresOnUnix, 0), 2*time.Second)
+		assert.True(t, time.Unix(expiresOnUnix, 0).Before(time.Now()), "expiry backdated from deletionTimestamp should already be in the past")
+	})
+}
+
 // TestProcessDriftedKarpenterNodes tests the ProcessDriftedKarpenterNodes function
 func TestProcessDriftedKarpenterNodes(t *testing.T) {
 	tests := []struct {
@@ -654,6 +839,121 @@ func TestProcessDriftedKarpenterNodes(t *testing.T) {
 	}
 }
 
+// TestProcessStuckTerminatingNodeClaims tests the ProcessStuckTerminatingNodeClaims function
+func TestProcessStuckTerminatingNodeClaims(t *testing.T) {
+	t.Run("No stuck terminating node claims found", func(t *testing.T) {
+		appContext := &AppContext{
+			Config: config.Config{
+				UpgradeStatusLabel:           "upgrade-status",
+				ParkingReasonLabel:           "parked-reason",
+				ParkedNodeTTL:                1 * time.Hour,
+				KarpenterStuckTerminationTTL: 24 * time.Hour,
+			},
+			K8sClient:        fake.NewClientset(),
+			DynamicK8SClient: &fakeDynamicClient{},
+			dryRun:           false,
+		}
+		logger := log.NewEntry(log.New())
+		err := ProcessStuckTerminatingNodeClaims(context.Background(), appContext, logger)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Stuck terminating node claim found and parked with backdated expiry", func(t *testing.T) {
+		fakeClient := fake.NewClientset()
+		node := &v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "stuck-terminating-node-1",
+			},
+		}
+		_, err := fakeClient.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
+		assert.NoError(t, err)
+
+		appContext := &AppContext{
+			Config: config.Config{
+				UpgradeStatusLabel:           "upgrade-status",
+				ExpiresOnLabel:               "expires-on",
+				ParkedByLabel:                "parked-by",
+				ParkedByValue:                "k8s-shredder",
+				ParkingReasonLabel:           "parked-reason",
+				ParkedNodeTaint:              "upgrade-status=parked:NoSchedule",
+				MaxParkedNodes:               "5",
+				ParkedNodeTTL:                1 * time.Hour,
+				KarpenterStuckTerminationTTL: 24 * time.Hour,
+			},
+			K8sClient:        fakeClient,
+			DynamicK8SClient: &fakeDynamicClientWithStuckTerminatingClaims{},
+			dryRun:           false,
+		}
+		logger := log.NewEntry(log.New())
+		err = ProcessStuckTerminatingNodeClaims(context.Background(), appContext, logger)
+		assert.NoError(t, err)
+
+		updatedNode, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "stuck-terminating-node-1", metav1.GetOptions{})
+		assert.NoError(t, err)
+		assert.Equal(t, "parked", updatedNode.Labels["upgrade-status"])
+
+		expiresOnUnix, err := strconv.ParseInt(updatedNode.Labels["expires-on"], 10, 64)
+		assert.NoError(t, err)
+		assert.True(t, time.Unix(expiresOnUnix, 0).Before(time.Now()), "a NodeClaim stuck since 2020 is still past ParkedNodeTTL=1h too, so it should be parked with an already-expired expiry")
+	})
+
+	t.Run("Stuck terminating node claim within ParkedNodeTTL grace gets a future expiry", func(t *testing.T) {
+		fakeClient := fake.NewClientset()
+		node := &v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "stuck-terminating-node-within-grace-1",
+			},
+		}
+		_, err := fakeClient.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
+		assert.NoError(t, err)
+
+		appContext := &AppContext{
+			Config: config.Config{
+				UpgradeStatusLabel:           "upgrade-status",
+				ExpiresOnLabel:               "expires-on",
+				ParkedByLabel:                "parked-by",
+				ParkedByValue:                "k8s-shredder",
+				ParkingReasonLabel:           "parked-reason",
+				ParkedNodeTaint:              "upgrade-status=parked:NoSchedule",
+				MaxParkedNodes:               "5",
+				ParkedNodeTTL:                168 * time.Hour,
+				KarpenterStuckTerminationTTL: 24 * time.Hour,
+			},
+			K8sClient:        fakeClient,
+			DynamicK8SClient: &fakeDynamicClientWithStuckTerminatingClaimsWithinGracePeriod{},
+			dryRun:           false,
+		}
+		logger := log.NewEntry(log.New())
+		err = ProcessStuckTerminatingNodeClaims(context.Background(), appContext, logger)
+		assert.NoError(t, err)
+
+		updatedNode, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "stuck-terminating-node-within-grace-1", metav1.GetOptions{})
+		assert.NoError(t, err)
+		assert.Equal(t, "parked", updatedNode.Labels["upgrade-status"])
+
+		expiresOnUnix, err := strconv.ParseInt(updatedNode.Labels["expires-on"], 10, 64)
+		assert.NoError(t, err)
+		assert.True(t, time.Unix(expiresOnUnix, 0).After(time.Now()), "a NodeClaim detected as stuck (deletionTimestamp older than KarpenterStuckTerminationTTL) but still within ParkedNodeTTL of its deletionTimestamp should get a future expiry, not an immediately-expired one")
+	})
+
+	t.Run("Error finding stuck terminating node claims", func(t *testing.T) {
+		appContext := &AppContext{
+			Config: config.Config{
+				UpgradeStatusLabel:           "upgrade-status",
+				ParkingReasonLabel:           "parked-reason",
+				ParkedNodeTTL:                1 * time.Hour,
+				KarpenterStuckTerminationTTL: 24 * time.Hour,
+			},
+			K8sClient:        fake.NewClientset(),
+			DynamicK8SClient: &fakeDynamicClientWithError{},
+			dryRun:           false,
+		}
+		logger := log.NewEntry(log.New())
+		err := ProcessStuckTerminatingNodeClaims(context.Background(), appContext, logger)
+		assert.Error(t, err)
+	})
+}
+
 // fakeDynamicClient implements dynamic.Interface for testing
 type fakeDynamicClient struct{}
 
@@ -666,6 +966,24 @@ type fakeDynamicClientWithDriftedClaims struct{}
 
 func (f *fakeDynamicClientWithDriftedClaims) Resource(gvr schema.GroupVersionResource) dynamic.NamespaceableResourceInterface {
 	return &fakeNamespaceableResourceInterfaceWithDriftedClaims{}
+}
+
+// fakeDynamicClientWithStuckTerminatingClaims provides a NodeClaim stuck terminating well past
+// any reasonable ParkedNodeTTL
+type fakeDynamicClientWithStuckTerminatingClaims struct{}
+
+func (f *fakeDynamicClientWithStuckTerminatingClaims) Resource(gvr schema.GroupVersionResource) dynamic.NamespaceableResourceInterface {
+	return &fakeNamespaceableResourceInterfaceWithStuckTerminatingClaims{}
+}
+
+// fakeDynamicClientWithStuckTerminatingClaimsWithinGracePeriod provides a NodeClaim whose
+// deletionTimestamp is older than a short detection threshold (KarpenterStuckTerminationTTL) but
+// still within the longer ParkedNodeTTL window, so it should be detected as stuck yet parked with
+// a future (not already-expired) expiry.
+type fakeDynamicClientWithStuckTerminatingClaimsWithinGracePeriod struct{}
+
+func (f *fakeDynamicClientWithStuckTerminatingClaimsWithinGracePeriod) Resource(gvr schema.GroupVersionResource) dynamic.NamespaceableResourceInterface {
+	return &fakeNamespaceableResourceInterfaceWithStuckTerminatingClaimsWithinGracePeriod{}
 }
 
 // fakeDynamicClientWithError returns errors for testing
@@ -798,6 +1116,101 @@ func (f *fakeNamespaceableResourceInterfaceWithDriftedClaims) Apply(ctx context.
 
 func (f *fakeNamespaceableResourceInterfaceWithDriftedClaims) ApplyStatus(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions) (*unstructured.Unstructured, error) {
 	return nil, nil
+}
+
+// fakeNamespaceableResourceInterfaceWithStuckTerminatingClaims provides a NodeClaim stuck
+// terminating well past any reasonable ParkedNodeTTL
+type fakeNamespaceableResourceInterfaceWithStuckTerminatingClaims struct{}
+
+func (f *fakeNamespaceableResourceInterfaceWithStuckTerminatingClaims) Namespace(string) dynamic.ResourceInterface {
+	return &fakeResourceInterfaceWithStuckTerminatingClaims{}
+}
+
+func (f *fakeNamespaceableResourceInterfaceWithStuckTerminatingClaims) List(ctx context.Context, opts metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+	stuckNodeClaim := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name":              "stuck-terminating-nodeclaim-1",
+				"namespace":         "default",
+				"deletionTimestamp": "2020-01-01T00:00:00Z",
+			},
+			"status": map[string]interface{}{
+				"nodeName":   "stuck-terminating-node-1",
+				"providerID": "aws://us-west-2a/i-0987654321fedcba0",
+			},
+		},
+	}
+
+	return &unstructured.UnstructuredList{
+		Items: []unstructured.Unstructured{stuckNodeClaim},
+	}, nil
+}
+
+func (f *fakeNamespaceableResourceInterfaceWithStuckTerminatingClaims) Create(ctx context.Context, obj *unstructured.Unstructured, options metav1.CreateOptions, subresources ...string) (*unstructured.Unstructured, error) {
+	return nil, nil
+}
+
+func (f *fakeNamespaceableResourceInterfaceWithStuckTerminatingClaims) Update(ctx context.Context, obj *unstructured.Unstructured, options metav1.UpdateOptions, subresources ...string) (*unstructured.Unstructured, error) {
+	return nil, nil
+}
+
+func (f *fakeNamespaceableResourceInterfaceWithStuckTerminatingClaims) UpdateStatus(ctx context.Context, obj *unstructured.Unstructured, options metav1.UpdateOptions) (*unstructured.Unstructured, error) {
+	return nil, nil
+}
+
+func (f *fakeNamespaceableResourceInterfaceWithStuckTerminatingClaims) Delete(ctx context.Context, name string, options metav1.DeleteOptions, subresources ...string) error {
+	return nil
+}
+
+func (f *fakeNamespaceableResourceInterfaceWithStuckTerminatingClaims) DeleteCollection(ctx context.Context, options metav1.DeleteOptions, listOptions metav1.ListOptions) error {
+	return nil
+}
+
+func (f *fakeNamespaceableResourceInterfaceWithStuckTerminatingClaims) Get(ctx context.Context, name string, options metav1.GetOptions, subresources ...string) (*unstructured.Unstructured, error) {
+	return nil, nil
+}
+
+func (f *fakeNamespaceableResourceInterfaceWithStuckTerminatingClaims) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+	return nil, nil
+}
+
+func (f *fakeNamespaceableResourceInterfaceWithStuckTerminatingClaims) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, options metav1.PatchOptions, subresources ...string) (*unstructured.Unstructured, error) {
+	return nil, nil
+}
+
+func (f *fakeNamespaceableResourceInterfaceWithStuckTerminatingClaims) Apply(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions, subresources ...string) (*unstructured.Unstructured, error) {
+	return nil, nil
+}
+
+func (f *fakeNamespaceableResourceInterfaceWithStuckTerminatingClaims) ApplyStatus(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions) (*unstructured.Unstructured, error) {
+	return nil, nil
+}
+
+// fakeNamespaceableResourceInterfaceWithStuckTerminatingClaimsWithinGracePeriod embeds the
+// regular stuck-terminating fixture and only overrides List, so it only needs to provide a
+// NodeClaim with a relative (rather than hardcoded) deletionTimestamp.
+type fakeNamespaceableResourceInterfaceWithStuckTerminatingClaimsWithinGracePeriod struct {
+	fakeNamespaceableResourceInterfaceWithStuckTerminatingClaims
+}
+
+func (f *fakeNamespaceableResourceInterfaceWithStuckTerminatingClaimsWithinGracePeriod) List(ctx context.Context, opts metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+	stuckNodeClaim := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name":              "stuck-terminating-nodeclaim-within-grace-1",
+				"namespace":         "default",
+				"deletionTimestamp": time.Now().Add(-30 * time.Hour).Format(time.RFC3339),
+			},
+			"status": map[string]interface{}{
+				"nodeName":   "stuck-terminating-node-within-grace-1",
+				"providerID": "aws://us-west-2a/i-0bbbbbbbbbbbbbbbb",
+			},
+		},
+	}
+
+	return &unstructured.UnstructuredList{
+		Items: []unstructured.Unstructured{stuckNodeClaim},
+	}, nil
 }
 
 // fakeNamespaceableResourceInterfaceWithError returns errors
@@ -965,6 +1378,70 @@ func (f *fakeResourceInterfaceWithDriftedClaims) Apply(ctx context.Context, name
 }
 
 func (f *fakeResourceInterfaceWithDriftedClaims) ApplyStatus(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions) (*unstructured.Unstructured, error) {
+	return nil, nil
+}
+
+// fakeResourceInterfaceWithStuckTerminatingClaims provides a NodeClaim stuck terminating well
+// past any reasonable ParkedNodeTTL
+type fakeResourceInterfaceWithStuckTerminatingClaims struct{}
+
+func (f *fakeResourceInterfaceWithStuckTerminatingClaims) Create(ctx context.Context, obj *unstructured.Unstructured, options metav1.CreateOptions, subresources ...string) (*unstructured.Unstructured, error) {
+	return nil, nil
+}
+
+func (f *fakeResourceInterfaceWithStuckTerminatingClaims) Update(ctx context.Context, obj *unstructured.Unstructured, options metav1.UpdateOptions, subresources ...string) (*unstructured.Unstructured, error) {
+	return nil, nil
+}
+
+func (f *fakeResourceInterfaceWithStuckTerminatingClaims) UpdateStatus(ctx context.Context, obj *unstructured.Unstructured, options metav1.UpdateOptions) (*unstructured.Unstructured, error) {
+	return nil, nil
+}
+
+func (f *fakeResourceInterfaceWithStuckTerminatingClaims) Delete(ctx context.Context, name string, options metav1.DeleteOptions, subresources ...string) error {
+	return nil
+}
+
+func (f *fakeResourceInterfaceWithStuckTerminatingClaims) DeleteCollection(ctx context.Context, options metav1.DeleteOptions, listOptions metav1.ListOptions) error {
+	return nil
+}
+
+func (f *fakeResourceInterfaceWithStuckTerminatingClaims) Get(ctx context.Context, name string, options metav1.GetOptions, subresources ...string) (*unstructured.Unstructured, error) {
+	return nil, nil
+}
+
+func (f *fakeResourceInterfaceWithStuckTerminatingClaims) List(ctx context.Context, opts metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+	stuckNodeClaim := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name":              "stuck-terminating-nodeclaim-1",
+				"namespace":         "default",
+				"deletionTimestamp": "2020-01-01T00:00:00Z",
+			},
+			"status": map[string]interface{}{
+				"nodeName":   "stuck-terminating-node-1",
+				"providerID": "aws://us-west-2a/i-0987654321fedcba0",
+			},
+		},
+	}
+
+	return &unstructured.UnstructuredList{
+		Items: []unstructured.Unstructured{stuckNodeClaim},
+	}, nil
+}
+
+func (f *fakeResourceInterfaceWithStuckTerminatingClaims) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+	return nil, nil
+}
+
+func (f *fakeResourceInterfaceWithStuckTerminatingClaims) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, options metav1.PatchOptions, subresources ...string) (*unstructured.Unstructured, error) {
+	return nil, nil
+}
+
+func (f *fakeResourceInterfaceWithStuckTerminatingClaims) Apply(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions, subresources ...string) (*unstructured.Unstructured, error) {
+	return nil, nil
+}
+
+func (f *fakeResourceInterfaceWithStuckTerminatingClaims) ApplyStatus(ctx context.Context, name string, obj *unstructured.Unstructured, options metav1.ApplyOptions) (*unstructured.Unstructured, error) {
 	return nil, nil
 }
 

@@ -46,6 +46,7 @@ func registerMetrics() error {
 	prometheus.MustRegister(ShredderPodForceToEvictTime)
 	prometheus.MustRegister(ShredderKarpenterDriftedNodesTotal)
 	prometheus.MustRegister(ShredderKarpenterDisruptedNodesTotal)
+	prometheus.MustRegister(ShredderKarpenterStuckTerminatingNodesTotal)
 	prometheus.MustRegister(ShredderKarpenterNodesParkedTotal)
 	prometheus.MustRegister(ShredderKarpenterNodesParkingFailedTotal)
 	prometheus.MustRegister(ShredderKarpenterProcessingDurationSeconds)

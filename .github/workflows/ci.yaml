@@ -26,7 +26,7 @@ jobs:
         uses: helm/kind-action@v1.14.0
         with:
           install_only: true
-          version: v0.29.0
+          version: v0.33.0
       - name: Prepare test environment
         run: make local-test
       - name: Run e2e tests
@@ -55,7 +55,7 @@ jobs:
         uses: helm/kind-action@v1.14.0
         with:
           install_only: true
-          version: v0.29.0
+          version: v0.33.0
       - name: Prepare test environment
         run: make local-test-karpenter
       - name: Run e2e tests
@@ -84,7 +84,7 @@ jobs:
         uses: helm/kind-action@v1.14.0
         with:
           install_only: true
-          version: v0.29.0
+          version: v0.33.0
       - name: Prepare test environment
         run: make local-test-node-labels
       - name: Run e2e tests

@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Adobe. All rights reserved.
+Copyright 2026 Adobe. All rights reserved.
 This file is licensed to you under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License. You may obtain a copy
 of the License at http://www.apache.org/licenses/LICENSE/2.0
@@ -110,77 +110,93 @@ func (s *Schedule) getLastTriggerTime(now time.Time) time.Time {
 	switch cronLower {
 	case "@yearly", "@annually":
 		// Triggers at 00:00:00 UTC on January 1st
-		lastYear := time.Date(now.Year(), 1, 1, 0, 0, 0, 0, time.UTC)
-		if lastYear.After(now) {
-			lastYear = time.Date(now.Year()-1, 1, 1, 0, 0, 0, 0, time.UTC)
+		// Convert to UTC first for consistent calculations
+		nowUTC := now.In(time.UTC)
+		lastYear := time.Date(nowUTC.Year(), 1, 1, 0, 0, 0, 0, time.UTC)
+		if lastYear.After(nowUTC) {
+			lastYear = time.Date(nowUTC.Year()-1, 1, 1, 0, 0, 0, 0, time.UTC)
 		}
 		return lastYear
 	case "@monthly":
 		// Triggers at 00:00:00 UTC on the 1st of each month
-		lastMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
-		if lastMonth.After(now) {
-			if now.Month() == 1 {
-				lastMonth = time.Date(now.Year()-1, 12, 1, 0, 0, 0, 0, time.UTC)
+		// Convert to UTC first for consistent calculations
+		nowUTC := now.In(time.UTC)
+		lastMonth := time.Date(nowUTC.Year(), nowUTC.Month(), 1, 0, 0, 0, 0, time.UTC)
+		if lastMonth.After(nowUTC) {
+			if nowUTC.Month() == 1 {
+				lastMonth = time.Date(nowUTC.Year()-1, 12, 1, 0, 0, 0, 0, time.UTC)
 			} else {
-				lastMonth = time.Date(now.Year(), now.Month()-1, 1, 0, 0, 0, 0, time.UTC)
+				lastMonth = time.Date(nowUTC.Year(), nowUTC.Month()-1, 1, 0, 0, 0, 0, time.UTC)
 			}
 		}
 		return lastMonth
 	case "@weekly":
 		// Triggers at 00:00:00 UTC on Sunday
-		lastWeek := now
-		// Go back to the most recent Sunday
-		for lastWeek.Weekday() != time.Sunday {
+		// Convert to UTC first to ensure consistent day-of-week calculations
+		nowUTC := now.In(time.UTC)
+		// Start from midnight of the current day
+		lastWeek := time.Date(nowUTC.Year(), nowUTC.Month(), nowUTC.Day(), 0, 0, 0, 0, time.UTC)
+		// Go back to the most recent Sunday at midnight
+		for lastWeek.Weekday() != time.Sunday || lastWeek.After(nowUTC) {
 			lastWeek = lastWeek.AddDate(0, 0, -1)
-		}
-		lastWeek = time.Date(lastWeek.Year(), lastWeek.Month(), lastWeek.Day(), 0, 0, 0, 0, time.UTC)
-		if lastWeek.After(now) {
-			lastWeek = lastWeek.AddDate(0, 0, -7)
 		}
 		return lastWeek
 	case "@daily", "@midnight":
 		// Triggers at 00:00:00 UTC each day
-		lastDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
-		if lastDay.After(now) {
+		// Convert to UTC first for consistent calculations
+		nowUTC := now.In(time.UTC)
+		lastDay := time.Date(nowUTC.Year(), nowUTC.Month(), nowUTC.Day(), 0, 0, 0, 0, time.UTC)
+		if lastDay.After(nowUTC) {
 			lastDay = lastDay.AddDate(0, 0, -1)
 		}
 		return lastDay
 	case "@hourly":
 		// Triggers at the top of each hour
-		lastHour := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, time.UTC)
-		if lastHour.After(now) {
+		// Convert to UTC first for consistent calculations
+		nowUTC := now.In(time.UTC)
+		lastHour := time.Date(nowUTC.Year(), nowUTC.Month(), nowUTC.Day(), nowUTC.Hour(), 0, 0, 0, time.UTC)
+		if lastHour.After(nowUTC) {
 			lastHour = lastHour.Add(-time.Hour)
 		}
 		return lastHour
 	}
 
-	// For standard cron expressions, iterate backwards to find the last trigger
-	// We use a binary-search-like approach: start from now and go back
+	// For standard cron expressions, find the last trigger by iterating forward
+	// The cron library's Next() only looks forward, so we start from before the expected trigger
+	// Convert to UTC first for consistency
+	nowUTC := now.In(time.UTC)
 	checkWindow := s.getCheckWindow()
-	checkTime := now
-	maxIterations := 1000 // Safety limit
-
+	
+	// Start checking from checkWindow before now
+	startTime := nowUTC.Add(-checkWindow)
+	
+	var lastTrigger time.Time
+	currentTime := startTime
+	maxIterations := 10000 // Safety limit (increased since we're going forward)
+	
 	for i := 0; i < maxIterations; i++ {
-		// Get what the next trigger would be from (checkTime - 1 second)
-		nextTrigger := s.schedule.Next(checkTime.Add(-time.Second))
-
-		// If the next trigger is at or before now, we found our last trigger
-		if !nextTrigger.After(now) {
-			return nextTrigger
+		// Get the next trigger from currentTime
+		nextTrigger := s.schedule.Next(currentTime)
+		
+		// If the next trigger is after now, we've gone past - return the last one we found
+		if nextTrigger.After(nowUTC) {
+			return lastTrigger
 		}
-
-		// Move back in time - use a smart increment based on the schedule
-		// For most schedules, going back by the minimum interval works
-		// We'll go back by minutes, but could optimize further
-		checkTime = checkTime.Add(-time.Minute)
-
-		// Safety check: don't go back too far
-		if now.Sub(checkTime) > checkWindow {
-			break
+		
+		// This trigger is at or before now, so it's a candidate
+		lastTrigger = nextTrigger
+		
+		// Move forward to just after this trigger to find the next one
+		currentTime = nextTrigger.Add(time.Second)
+		
+		// Safety check: if we've gone past now, stop
+		if currentTime.After(nowUTC) {
+			return lastTrigger
 		}
 	}
-
-	return time.Time{}
+	
+	// If we hit max iterations, return the best we found
+	return lastTrigger
 }
 
 // getCheckWindow returns the maximum time window to check backwards

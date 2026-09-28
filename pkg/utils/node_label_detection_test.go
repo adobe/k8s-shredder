@@ -382,7 +382,7 @@ func TestFindNodesWithLabels(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create fake Kubernetes client
-			fakeClient := fake.NewSimpleClientset()
+			fakeClient := fake.NewClientset()
 
 			// Add nodes to the fake client
 			for _, node := range tt.nodes {
@@ -532,7 +532,7 @@ func TestParkNodesWithLabels(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create fake Kubernetes client
-			fakeClient := fake.NewSimpleClientset()
+			fakeClient := fake.NewClientset()
 
 			// Add nodes to the fake client if they exist
 			for _, nodeInfo := range tt.matchingNodes {
@@ -637,7 +637,7 @@ func TestProcessNodesWithLabels(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create fake Kubernetes client
-			fakeClient := fake.NewSimpleClientset()
+			fakeClient := fake.NewClientset()
 
 			// Add nodes to the fake client
 			for _, node := range tt.nodes {

@@ -34,7 +34,7 @@ func TestLimitNodesToPark_NoLimit(t *testing.T) {
 	}
 
 	// Create a fake k8s client
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := fake.NewClientset()
 
 	// Create nodes with different creation times (node3 is oldest, node1 is newest)
 	baseTime := time.Now()
@@ -104,7 +104,7 @@ func TestLimitNodesToPark_WithLimit(t *testing.T) {
 	}
 
 	// Create a fake k8s client
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := fake.NewClientset()
 
 	// Create nodes with different creation times (node3 is oldest, node1 is newest)
 	baseTime := time.Now()
@@ -178,7 +178,7 @@ func TestLimitNodesToPark_NoAvailableSlots(t *testing.T) {
 	}
 
 	// Create a fake k8s client
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := fake.NewClientset()
 
 	// Add two parked nodes to simulate existing parked nodes
 	parkedNode1 := &v1.Node{
@@ -224,7 +224,7 @@ func TestLimitNodesToPark_NegativeLimit(t *testing.T) {
 	}
 
 	// Create a fake k8s client
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := fake.NewClientset()
 
 	logger := log.WithField("test", "TestLimitNodesToPark_NegativeLimit")
 
@@ -251,7 +251,7 @@ func TestLimitNodesToPark_PercentageLimit(t *testing.T) {
 	}
 
 	// Create a fake k8s client
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := fake.NewClientset()
 
 	// Add 10 total nodes to the cluster
 	for i := 1; i <= 10; i++ {
@@ -302,7 +302,7 @@ func TestLimitNodesToPark_PercentageLimit_NoSlots(t *testing.T) {
 	}
 
 	// Create a fake k8s client with 10 nodes
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := fake.NewClientset()
 
 	for i := 1; i <= 9; i++ {
 		nodeName := fmt.Sprintf("cluster-node-%d", i)
@@ -344,7 +344,7 @@ func TestLimitNodesToPark_SortingByAge(t *testing.T) {
 	}
 
 	// Create a fake k8s client
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := fake.NewClientset()
 
 	// Create 5 nodes with different creation times
 	baseTime := time.Now()
@@ -393,7 +393,7 @@ func TestCountParkedNodes(t *testing.T) {
 	upgradeStatusLabel := "test-upgrade-status"
 
 	// Create a fake k8s client
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := fake.NewClientset()
 
 	// Add some nodes with different statuses
 	parkedNode1 := &v1.Node{
@@ -465,7 +465,7 @@ func TestParkNodes(t *testing.T) {
 	}
 
 	// Create a fake k8s client with existing nodes
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := fake.NewClientset()
 
 	// Create test nodes
 	node1 := &v1.Node{
@@ -563,7 +563,7 @@ func TestParkNodes_EmptyNodes(t *testing.T) {
 		ParkedNodeTTL:      1 * time.Hour,
 	}
 
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := fake.NewClientset()
 	logger := log.WithField("test", "TestParkNodes_EmptyNodes")
 
 	err := ParkNodes(context.Background(), fakeClient, []NodeInfo{}, cfg, false, "test", logger)
@@ -585,7 +585,7 @@ func TestParkNodes_NodeWithNoName(t *testing.T) {
 		{Name: "valid-node"},
 	}
 
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := fake.NewClientset()
 
 	// Create valid node
 	validNode := &v1.Node{
@@ -621,7 +621,7 @@ func TestUnparkNode(t *testing.T) {
 	}
 
 	// Create a fake k8s client
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := fake.NewClientset()
 
 	// Create a parked node
 	parkedNode := &v1.Node{
@@ -714,7 +714,7 @@ func TestUnparkNode_NotParked(t *testing.T) {
 	}
 
 	// Create a fake k8s client
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := fake.NewClientset()
 
 	// Create a normal node (not parked)
 	normalNode := &v1.Node{
@@ -754,7 +754,7 @@ func TestUnparkNode_NodeNotFound(t *testing.T) {
 		ParkedByValue:      "k8s-shredder",
 	}
 
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := fake.NewClientset()
 	logger := log.WithField("test", "TestUnparkNode_NodeNotFound")
 
 	err := UnparkNode(context.Background(), fakeClient, "non-existent-node", cfg, false, logger)
@@ -772,7 +772,7 @@ func TestCheckPodParkingSafety_Safe(t *testing.T) {
 	}
 
 	// Create a fake k8s client
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := fake.NewClientset()
 
 	// Create a parked node
 	parkedNode := &v1.Node{
@@ -836,7 +836,7 @@ func TestCheckPodParkingSafety_Unsafe(t *testing.T) {
 	}
 
 	// Create a fake k8s client
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := fake.NewClientset()
 
 	// Create a parked node
 	parkedNode := &v1.Node{
@@ -884,7 +884,7 @@ func TestCheckPodParkingSafety_NoLabels(t *testing.T) {
 	}
 
 	// Create a fake k8s client
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := fake.NewClientset()
 
 	// Create a parked node
 	parkedNode := &v1.Node{
@@ -929,7 +929,7 @@ func TestCheckPodParkingSafety_NoPods(t *testing.T) {
 	}
 
 	// Create a fake k8s client
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := fake.NewClientset()
 
 	// Create a parked node with no pods
 	parkedNode := &v1.Node{
@@ -958,7 +958,7 @@ func TestCheckPodParkingSafety_NodeNotFound(t *testing.T) {
 		ParkedByValue:      "k8s-shredder",
 	}
 
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := fake.NewClientset()
 	logger := log.WithField("test", "TestCheckPodParkingSafety_NodeNotFound")
 
 	// Test safety check with non-existent node

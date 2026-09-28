@@ -7,11 +7,11 @@ jobs:
     name: ci
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
-          go-version: '1.25'
+          go-version: '1.27'
       - name: Run Gosec Security Scanner
         uses: securego/gosec@master
         with:
@@ -23,10 +23,10 @@ jobs:
           # version: v1.46
           args: -v --timeout 5m ./...
       - name: Install k8s Kind Cluster
-        uses: helm/kind-action@v1.13.0
+        uses: helm/kind-action@v1.15.0
         with:
           install_only: true
-          version: v0.29.0
+          version: v0.33.0
       - name: Prepare test environment
         run: make local-test
       - name: Run e2e tests
@@ -36,11 +36,11 @@ jobs:
     name: ci-karpenter
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
-          go-version: '1.25'
+          go-version: '1.27'
       - name: Run Gosec Security Scanner
         uses: securego/gosec@master
         with:
@@ -52,10 +52,10 @@ jobs:
           # version: v1.46
           args: -v --timeout 5m ./...
       - name: Install k8s Kind Cluster
-        uses: helm/kind-action@v1.13.0
+        uses: helm/kind-action@v1.15.0
         with:
           install_only: true
-          version: v0.29.0
+          version: v0.33.0
       - name: Prepare test environment
         run: make local-test-karpenter
       - name: Run e2e tests
@@ -65,11 +65,11 @@ jobs:
     name: ci-node-labels
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
-          go-version: '1.25'
+          go-version: '1.27'
       - name: Run Gosec Security Scanner
         uses: securego/gosec@master
         with:
@@ -81,10 +81,10 @@ jobs:
           # version: v1.46
           args: -v --timeout 5m ./...
       - name: Install k8s Kind Cluster
-        uses: helm/kind-action@v1.13.0
+        uses: helm/kind-action@v1.15.0
         with:
           install_only: true
-          version: v0.29.0
+          version: v0.33.0
       - name: Prepare test environment
         run: make local-test-node-labels
       - name: Run e2e tests

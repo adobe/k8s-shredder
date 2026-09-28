@@ -54,6 +54,21 @@ type Config struct {
 	EnableKarpenterDriftDetection bool
 	// EnableKarpenterDisruptionDetection controls whether to scan for disrupted Karpenter NodeClaims and automatically label their nodes
 	EnableKarpenterDisruptionDetection bool
+	// EnableKarpenterStuckTerminationDetection controls whether to scan for Karpenter NodeClaims
+	// that have had deletionTimestamp set for longer than KarpenterStuckTerminationTTL while the
+	// node still exists, and automatically label their nodes for force eviction. This catches
+	// nodes stuck terminating for any reason (blocked pod eviction, stuck cloud-provider instance
+	// termination, etc.), independent of whether a Drifted/DisruptionReason condition is still
+	// present - Karpenter clears those once deletion starts, so drift/disruption detection alone
+	// can miss this failure mode entirely.
+	EnableKarpenterStuckTerminationDetection bool
+	// KarpenterStuckTerminationTTL is the detection threshold for stuck-termination detection: a
+	// NodeClaim is considered stuck once its deletionTimestamp is older than this. It's
+	// intentionally independent of ParkedNodeTTL, which continues to control the backdated
+	// parking expiry (deletionTimestamp + ParkedNodeTTL) once a node is flagged - conflating the
+	// two meant detection could never fire before the backdated expiry had already passed,
+	// forcing every stuck node straight to zero-grace-period eviction.
+	KarpenterStuckTerminationTTL time.Duration
 	// ParkedByLabel is used for identifying which component parked the node
 	ParkedByLabel string
 	// ParkedByValue is the value to set for the ParkedByLabel
@@ -94,4 +109,22 @@ func (c *Config) GetEvictionLoopSchedule() (*schedule.Schedule, error) {
 // HasEvictionLoopSchedule returns true if EvictionLoopSchedule is configured
 func (c *Config) HasEvictionLoopSchedule() bool {
 	return c.EvictionLoopSchedule != ""
+}
+
+// ValidateKarpenterStuckTerminationTTL returns an error if KarpenterStuckTerminationTTL is not
+// smaller than ParkedNodeTTL while EnableKarpenterStuckTerminationDetection is enabled. The check
+// is skipped when the feature is disabled, since the TTL relationship is otherwise irrelevant.
+func (c *Config) ValidateKarpenterStuckTerminationTTL() error {
+	if !c.EnableKarpenterStuckTerminationDetection {
+		return nil
+	}
+
+	if c.KarpenterStuckTerminationTTL >= c.ParkedNodeTTL {
+		return errors.Errorf(
+			"KarpenterStuckTerminationTTL (%s) must be less than ParkedNodeTTL (%s), otherwise stuck nodes are parked with an already-expired TTL and get force-evicted immediately, bypassing PDBs",
+			c.KarpenterStuckTerminationTTL, c.ParkedNodeTTL,
+		)
+	}
+
+	return nil
 }

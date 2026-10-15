@@ -226,7 +226,7 @@ func prometheusQuery(query string) (model.Value, v1.Warnings, error) {
 	var warnings v1.Warnings
 	maxRetries := 3
 	for i := 0; i < maxRetries; i++ {
-		result, warnings, err = v1api.Query(ctx, query, time.Now(), v1.WithTimeout(5*time.Second))
+		result, warnings, _, err = v1api.Query(ctx, query, time.Now(), v1.WithTimeout(5*time.Second))
 		if err == nil {
 			break
 		}

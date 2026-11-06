@@ -130,7 +130,7 @@ echo "KARPENTER: Waiting for k8s-shredder to detect and park both nodes..."
 echo "==============================================================================="
 
 echo "KARPENTER: Current k8s-shredder logs:"
-kubectl logs -l app=k8s-shredder -n kube-system --tail=20
+kubectl logs -l app.kubernetes.io/name=k8s-shredder -n kube-system --tail=20
 echo ""
 
 echo "KARPENTER: Monitoring k8s-shredder activity for next 5 minutes..."
@@ -223,7 +223,7 @@ while [[ $(date +%s) -lt ${end_time} ]]; do
         echo ""
         
         echo "KARPENTER: Final k8s-shredder logs:"
-        kubectl logs -l app=k8s-shredder -n kube-system --tail=30
+        kubectl logs -l app.kubernetes.io/name=k8s-shredder -n kube-system --tail=30
         echo ""
         
         echo "==============================================================================="
@@ -281,7 +281,7 @@ kubectl get nodeclaim ${disruption_nodeclaim} -o yaml
 echo ""
 
 echo "KARPENTER: Final k8s-shredder logs:"
-kubectl logs -l app=k8s-shredder -n kube-system --tail=50
+kubectl logs -l app.kubernetes.io/name=k8s-shredder -n kube-system --tail=50
 echo ""
 
 echo "KARPENTER: All NodeClaims:"

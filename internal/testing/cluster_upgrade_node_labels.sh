@@ -55,7 +55,7 @@ echo "NODE_LABELS: Waiting for k8s-shredder to detect and park the labeled node.
 echo "==============================================================================="
 
 echo "NODE_LABELS: Current k8s-shredder logs:"
-kubectl logs -l app=k8s-shredder -n kube-system --tail=20
+kubectl logs -l app.kubernetes.io/name=k8s-shredder -n kube-system --tail=20
 echo ""
 
 echo "NODE_LABELS: Monitoring k8s-shredder activity for next 3 minutes..."
@@ -97,7 +97,7 @@ while [[ $(date +%s) -lt ${end_time} ]]; do
         
         echo ""
         echo "NODE_LABELS: Final k8s-shredder logs:"
-        kubectl logs -l app=k8s-shredder -n kube-system --tail=30
+        kubectl logs -l app.kubernetes.io/name=k8s-shredder -n kube-system --tail=30
         
         echo ""
         echo "==============================================================================="
@@ -149,8 +149,21 @@ echo "NODE_LABELS: Node labels:"
 kubectl get node ${test_node} --show-labels
 echo ""
 
+echo "NODE_LABELS: k8s-shredder pod status:"
+kubectl get pods -n kube-system -l app.kubernetes.io/name=k8s-shredder -o wide
+kubectl describe pods -n kube-system -l app.kubernetes.io/name=k8s-shredder
+echo ""
+
 echo "NODE_LABELS: Final k8s-shredder logs:"
-kubectl logs -l app=k8s-shredder -n kube-system --tail=50
+kubectl logs -l app.kubernetes.io/name=k8s-shredder -n kube-system --tail=50
+echo ""
+
+echo "NODE_LABELS: Previous container k8s-shredder logs (if restarted):"
+kubectl logs -l app.kubernetes.io/name=k8s-shredder -n kube-system --previous --tail=50 || true
+echo ""
+
+echo "NODE_LABELS: All pods:"
+kubectl get pods --all-namespaces -o wide
 echo ""
 
 echo "NODE_LABELS: All Nodes:"

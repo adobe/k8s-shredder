@@ -18,11 +18,16 @@ import (
 	"time"
 
 	"github.com/adobe/k8s-shredder/pkg/config"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 )
 
 func TestLimitNodesToPark_NoLimit(t *testing.T) {
@@ -966,4 +971,110 @@ func TestCheckPodParkingSafety_NodeNotFound(t *testing.T) {
 	safe, err := CheckPodParkingSafety(context.Background(), fakeClient, "non-existent-node", cfg, logger)
 	assert.NoError(t, err)
 	assert.True(t, safe) // No eligible pods means safety check passes (only DaemonSet/static pods remain)
+}
+
+// conflictOnNodeUpdate makes the first n node updates fail with a conflict error, the way the
+// API server does when the node changes between a Get and an Update. Use n < 0 to fail every update.
+// It returns a pointer to the number of update calls seen.
+func conflictOnNodeUpdate(client *fake.Clientset, n int) *int {
+	calls := 0
+	client.PrependReactor("update", "nodes", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		calls++
+		if n < 0 || calls <= n {
+			return true, nil, apierrors.NewConflict(schema.GroupResource{Resource: "nodes"}, "node1",
+				fmt.Errorf("the object has been modified; please apply your changes to the latest version and try again"))
+		}
+		return false, nil, nil
+	})
+	return &calls
+}
+
+func TestCordonAndTaintNode_RetriesOnConflict(t *testing.T) {
+	fakeClient := fake.NewClientset(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node1"}})
+	calls := conflictOnNodeUpdate(fakeClient, 2)
+	logger := log.WithField("test", "TestCordonAndTaintNode_RetriesOnConflict")
+
+	err := cordonAndTaintNode(context.Background(), fakeClient, "node1", "test-upgrade-status=parked:NoSchedule", false, logger)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 3, *calls, "expected two conflicts and one successful update")
+
+	node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "node1", metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.True(t, node.Spec.Unschedulable, "node must be cordoned after the retry")
+	if assert.Len(t, node.Spec.Taints, 1) {
+		assert.Equal(t, "test-upgrade-status", node.Spec.Taints[0].Key)
+	}
+}
+
+func TestCordonAndTaintNode_ConflictExhausted(t *testing.T) {
+	fakeClient := fake.NewClientset(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node1"}})
+	conflictOnNodeUpdate(fakeClient, -1)
+	logger := log.WithField("test", "TestCordonAndTaintNode_ConflictExhausted")
+
+	err := cordonAndTaintNode(context.Background(), fakeClient, "node1", "test-upgrade-status=parked:NoSchedule", false, logger)
+
+	assert.Error(t, err, "a persistent conflict must be returned to the caller")
+	assert.True(t, apierrors.IsConflict(errors.Cause(err)))
+}
+
+func TestLabelNode_RetriesOnConflict(t *testing.T) {
+	fakeClient := fake.NewClientset(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node1"}})
+	calls := conflictOnNodeUpdate(fakeClient, 2)
+	logger := log.WithField("test", "TestLabelNode_RetriesOnConflict")
+
+	labels := ParkingLabels{
+		UpgradeStatusLabel: "test-upgrade-status",
+		UpgradeStatusValue: "parked",
+		ExpiresOnLabel:     "test-expires-on",
+		ExpiresOnValue:     "123",
+		ParkedByLabel:      "test-parked-by",
+		ParkedByValue:      "k8s-shredder",
+		ParkingReasonLabel: "test-reason",
+		ParkingReasonValue: "test",
+	}
+
+	err := labelNode(context.Background(), fakeClient, "node1", labels, false, logger)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 3, *calls)
+
+	node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "node1", metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.Equal(t, "parked", node.Labels["test-upgrade-status"])
+	assert.Equal(t, "123", node.Labels["test-expires-on"])
+}
+
+// TestParkNodes_CordonSurvivesConflict is the regression test for a node that was labeled as parked
+// but never cordoned or tainted because the cordon update hit a conflict and was not retried.
+func TestParkNodes_CordonSurvivesConflict(t *testing.T) {
+	cfg := config.Config{
+		UpgradeStatusLabel: "test-upgrade-status",
+		ExpiresOnLabel:     "test-expires-on",
+		ParkedByLabel:      "test-parked-by",
+		ParkedByValue:      "k8s-shredder",
+		ParkingReasonLabel: "test-reason",
+		ParkedNodeTaint:    "test-upgrade-status=parked:NoSchedule",
+		ParkedNodeTTL:      1 * time.Hour,
+	}
+	fakeClient := fake.NewClientset(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node1"}})
+
+	// Let the label update (first update) succeed and conflict on the next update, the cordon.
+	updates := 0
+	fakeClient.PrependReactor("update", "nodes", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		updates++
+		if updates == 2 {
+			return true, nil, apierrors.NewConflict(schema.GroupResource{Resource: "nodes"}, "node1", fmt.Errorf("the object has been modified"))
+		}
+		return false, nil, nil
+	})
+
+	err := ParkNodes(context.Background(), fakeClient, []NodeInfo{{Name: "node1"}}, cfg, false, "test", log.WithField("test", "TestParkNodes_CordonSurvivesConflict"))
+	assert.NoError(t, err)
+
+	node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "node1", metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.Equal(t, "parked", node.Labels["test-upgrade-status"])
+	assert.True(t, node.Spec.Unschedulable, "node must be cordoned")
+	assert.Len(t, node.Spec.Taints, 1, "node must carry the parked taint")
 }

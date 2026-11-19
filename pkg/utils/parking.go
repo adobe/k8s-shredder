@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/retry"
 )
 
 // NodeInfo represents a node that needs to be parked
@@ -175,63 +176,73 @@ func cordonAndTaintNode(ctx context.Context, k8sClient kubernetes.Interface, nod
 		return errors.Wrap(err, "failed to parse taint string")
 	}
 
-	// Get the node
-	node, err := k8sClient.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
-	if err != nil {
-		logger.WithError(err).Error("Failed to get node")
-		return errors.Wrapf(err, "failed to get node %s", nodeName)
-	}
-
-	// Check if node is already cordoned and has the taint
-	alreadyCordoned := node.Spec.Unschedulable
-	alreadyTainted := false
-
-	for _, taint := range node.Spec.Taints {
-		if taint.Key == taintKey && taint.Value == taintValue && taint.Effect == taintEffect {
-			alreadyTainted = true
-			break
+	// Get, modify and update the node. The node object changes often (kubelet, Karpenter and
+	// other controllers write to it), so the update can fail with a conflict. Re-read the
+	// node and try again on conflict. A single failed attempt would leave a node that is
+	// labeled as parked but is not cordoned or tainted.
+	applied := false
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		node, getErr := k8sClient.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+		if getErr != nil {
+			return getErr
 		}
-	}
 
-	if alreadyCordoned && alreadyTainted {
-		logger.Debug("Node is already cordoned and tainted, skipping")
-		return nil
-	}
+		// Check if node is already cordoned and has the taint
+		alreadyCordoned := node.Spec.Unschedulable
+		alreadyTainted := false
 
-	// Cordon the node
-	if !alreadyCordoned {
-		node.Spec.Unschedulable = true
-		logger.Info("Cordoning node")
-	}
-
-	// Add the taint if not already present
-	if !alreadyTainted {
-		newTaint := v1.Taint{
-			Key:    taintKey,
-			Value:  taintValue,
-			Effect: taintEffect,
+		for _, taint := range node.Spec.Taints {
+			if taint.Key == taintKey && taint.Value == taintValue && taint.Effect == taintEffect {
+				alreadyTainted = true
+				break
+			}
 		}
-		node.Spec.Taints = append(node.Spec.Taints, newTaint)
-		logger.WithFields(log.Fields{
-			"taintKey":    taintKey,
-			"taintValue":  taintValue,
-			"taintEffect": taintEffect,
-		}).Info("Adding taint to node")
-	}
 
-	if dryRun {
-		logger.Info("DRY-RUN: Would cordon and taint node")
-		return nil
-	}
+		if alreadyCordoned && alreadyTainted {
+			logger.Debug("Node is already cordoned and tainted, skipping")
+			return nil
+		}
 
-	// Update the node
-	_, err = k8sClient.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
+		// Cordon the node
+		if !alreadyCordoned {
+			node.Spec.Unschedulable = true
+			logger.Info("Cordoning node")
+		}
+
+		// Add the taint if not already present
+		if !alreadyTainted {
+			newTaint := v1.Taint{
+				Key:    taintKey,
+				Value:  taintValue,
+				Effect: taintEffect,
+			}
+			node.Spec.Taints = append(node.Spec.Taints, newTaint)
+			logger.WithFields(log.Fields{
+				"taintKey":    taintKey,
+				"taintValue":  taintValue,
+				"taintEffect": taintEffect,
+			}).Info("Adding taint to node")
+		}
+
+		if dryRun {
+			logger.Info("DRY-RUN: Would cordon and taint node")
+			return nil
+		}
+
+		_, updateErr := k8sClient.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
+		if updateErr == nil {
+			applied = true
+		}
+		return updateErr
+	})
 	if err != nil {
 		logger.WithError(err).Error("Failed to update node with cordon and taint")
 		return errors.Wrapf(err, "failed to update node %s with cordon and taint", nodeName)
 	}
 
-	logger.Info("Node cordoned and tainted successfully")
+	if applied {
+		logger.Info("Node cordoned and tainted successfully")
+	}
 	return nil
 }
 
@@ -253,50 +264,57 @@ func labelNode(ctx context.Context, k8sClient kubernetes.Interface, nodeName str
 
 	logger.Debug("Starting node labeling operation")
 
-	// Get the node first
-	node, err := k8sClient.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
-	if err != nil {
-		logger.WithError(err).Error("Failed to get node")
-		return errors.Wrapf(err, "failed to get node %s", nodeName)
-	}
+	// Get, modify and update the node. Re-read the node and try again on conflict.
+	applied := false
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		node, getErr := k8sClient.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+		if getErr != nil {
+			return getErr
+		}
 
-	// Check if the node already has the labels
-	if node.Labels == nil {
-		node.Labels = make(map[string]string)
-	}
+		// Check if the node already has the labels
+		if node.Labels == nil {
+			node.Labels = make(map[string]string)
+		}
 
-	existingUpgradeStatus := node.Labels[labels.UpgradeStatusLabel]
-	existingExpiresOn := node.Labels[labels.ExpiresOnLabel]
+		existingUpgradeStatus := node.Labels[labels.UpgradeStatusLabel]
+		existingExpiresOn := node.Labels[labels.ExpiresOnLabel]
 
-	// Check if the node is already labeled as parked
-	if existingUpgradeStatus == "parked" && existingExpiresOn != "" {
-		logger.Debug("Node is already labeled as parked, skipping")
-		return nil
-	}
+		// Check if the node is already labeled as parked
+		if existingUpgradeStatus == "parked" && existingExpiresOn != "" {
+			logger.Debug("Node is already labeled as parked, skipping")
+			return nil
+		}
 
-	// Apply the labels
-	node.Labels[labels.UpgradeStatusLabel] = labels.UpgradeStatusValue
-	node.Labels[labels.ExpiresOnLabel] = labels.ExpiresOnValue
-	node.Labels[labels.ParkedByLabel] = labels.ParkedByValue
-	node.Labels[labels.ParkingReasonLabel] = labels.ParkingReasonValue
-	// Apply extra labels
-	for k, v := range labels.ExtraLabels {
-		node.Labels[k] = v
-	}
+		// Apply the labels
+		node.Labels[labels.UpgradeStatusLabel] = labels.UpgradeStatusValue
+		node.Labels[labels.ExpiresOnLabel] = labels.ExpiresOnValue
+		node.Labels[labels.ParkedByLabel] = labels.ParkedByValue
+		node.Labels[labels.ParkingReasonLabel] = labels.ParkingReasonValue
+		// Apply extra labels
+		for k, v := range labels.ExtraLabels {
+			node.Labels[k] = v
+		}
 
-	if dryRun {
-		logger.Info("DRY-RUN: Would label node")
-		return nil
-	}
+		if dryRun {
+			logger.Info("DRY-RUN: Would label node")
+			return nil
+		}
 
-	// Update the node
-	_, err = k8sClient.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
+		_, updateErr := k8sClient.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
+		if updateErr == nil {
+			applied = true
+		}
+		return updateErr
+	})
 	if err != nil {
 		logger.WithError(err).Error("Failed to update node with labels")
 		return errors.Wrapf(err, "failed to update node %s with labels", nodeName)
 	}
 
-	logger.Info("Node labeled successfully")
+	if applied {
+		logger.Info("Node labeled successfully")
+	}
 	return nil
 }
 
@@ -431,9 +449,9 @@ func ParkNodes(ctx context.Context, k8sClient kubernetes.Interface, nodes []Node
 		if err != nil {
 			nodeLogger.WithError(err).Error("Failed to cordon and taint node")
 			// Continue with pod labeling even if cordoning/tainting fails
+		} else {
+			nodeLogger.Info("Successfully processed node (labeled, cordoned, and tainted)")
 		}
-
-		nodeLogger.Info("Successfully processed node (labeled, cordoned, and tainted)")
 
 		// Get eligible pods on the node and label them
 		pods, err := getEligiblePodsForNode(ctx, k8sClient, nodeInfo.Name, nodeLogger)

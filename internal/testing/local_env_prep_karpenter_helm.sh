@@ -142,6 +142,10 @@ kubectl apply -f "${test_dir}/prometheus_stuffs_karpenter.yaml"
 
 echo "KIND: deploying Argo Rollouts CRD..."
 kubectl apply -f https://raw.githubusercontent.com/argoproj/argo-rollouts/v1.7.2/manifests/crds/rollout-crd.yaml
+for _ in $(seq 1 30); do
+  kubectl get rollouts.argoproj.io -A >/dev/null 2>&1 && break
+  sleep 2
+done
 
 echo "KIND: deploying test applications..."
 kubectl apply -f "${test_dir}/test_apps.yaml"
